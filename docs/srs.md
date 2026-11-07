@@ -51,20 +51,20 @@ In Sprint 1 a Loan Taken (card) source accepts Expense lines only, and Loan Take
 | FR-01 | An active user logs in with email and password; the system starts a session and returns the user’s identity. Invalid credentials get one generic rejection. |
 | FR-02 | A logged-in user logs out; the session ends immediately and any later request using it is rejected. |
 | FR-03 | The client can retrieve the current user’s id, name and role from the server. |
-| FR-04 | The backend allows each operation only to permitted roles and only on the caller’s own financial records (matrix in Part C). |
+| FR-04 | The backend enforces the role/permission matrix in System-Level SDS §5 and the ownership rule in BR-01 on every protected operation: a caller may perform only the operations allowed to their role and may access only their own financial records; another user’s record is answered as not found, and an Administrator is denied every financial record and summary (BR-02). |
 | FR-05 | An Administrator lists users with email, name, role and status, without any financial data. |
 | FR-06 | An Administrator enables or disables a user; a disabled user cannot log in and their sessions end. |
 | FR-07 | An Administrator creates a user account with an initial password. |
 | FR-08 | A User views their accounts grouped by type, each with its current balance (cash held, debt, amount owed to them, income/expense totals). |
-| FR-09 | A User creates, renames and archives accounts of the five types. |
+| FR-09 | A User creates, renames and archives accounts of the five types, each with an optional subtype valid for its type (for example wallet or bank for Cash, credit card or other for Loan Taken). |
 | FR-10 | A User records an opening balance (amount and date) for a Cash, Loan Taken or Loan Given account. |
 | FR-11 | A User corrects or removes an opening balance. |
-| FR-12 | A User records a payment or charge: source account, date, total and one or more allocation lines. |
-| FR-13 | A User records received money into a Cash account: date, total and one or more allocation lines. |
+| FR-12 | A User records a payment or charge: source account, date, total, optional memo and one or more allocation lines, each with an optional note. |
+| FR-13 | A User records received money into a Cash account: date, total, optional memo and one or more allocation lines, each with an optional note. |
 | FR-14 | A User records loans given and taken: lending, borrowing, repaying loans taken and receiving repayments of loans given. |
 | FR-15 | A User transfers money between their own Cash accounts using an allocation line on either form. |
 | FR-16 | A User edits or voids a transaction; balances and summaries update accordingly. |
-| FR-17 | A User views transaction history, newest first, paginated, showing date, source, total and lines. |
+| FR-17 | A User views transaction history, newest first, paginated, showing date, source, total, memo and lines with their notes. |
 | FR-18 | A User searches and filters history by date range, account, category, text and amount range. |
 | FR-19 | A User marks or unmarks a transaction as favorite and lists favorites. |
 | FR-20 | A User selects Duplicate on a transaction to open a new editable transaction pre-filled with the same details; nothing is saved until submitted. |
@@ -72,6 +72,7 @@ In Sprint 1 a Loan Taken (card) source accepts Expense lines only, and Loan Take
 | FR-22 | A User views total income, total expense and net for a date range (default: current month). |
 | FR-23 | A User views spending per expense account for a date range, with share of total. |
 | FR-24 | A User views a monthly income-versus-expense report for a chosen year. |
+| FR-25 | A User opens one transaction and views its complete detail: kind, source account, date, total, memo and every allocation line with target account and note. |
 
 ## 6. Business rules
 
@@ -90,8 +91,9 @@ In Sprint 1 a Loan Taken (card) source accepts Expense lines only, and Loan Take
 | BR-11 | An account has at most one opening balance; only Cash, Loan Taken and Loan Given accounts can have one; it is dated and never counted as income. |
 | BR-12 | Voided transactions are excluded from balances and summaries but stay in history, marked as voided. |
 | BR-13 | A disabled user cannot log in, and their active sessions end immediately. |
-| BR-14 | Account names are unique per user; archived accounts cannot be used in new transactions but keep their history; an account’s type cannot change after creation. |
+| BR-14 | Account names are unique per user; archived accounts cannot be used in new transactions but keep their history; an account’s type and subtype cannot change after creation, and a subtype must be valid for its type. |
 | BR-15 | Duplicate copies details only; the original is unchanged and the copy is saved only when submitted. |
+| BR-16 | A Payment source must be a Cash or Loan Taken account; a Receipt source must be a Cash account. A source of any other type is rejected and nothing is saved. |
 
 ## 7. Non-functional requirements
 
@@ -106,6 +108,7 @@ In Sprint 1 a Loan Taken (card) source accepts Expense lines only, and Loan Take
 | NFR-07 | p95 latency ≤ 500 ms for balances, a 50-row history page and summaries with 10,000 transactions for one user. | Seeded timing script | 3 |
 | NFR-08 | Every form shows field-level validation errors; every screen has loading, empty and error states; usable at 360 px width. | Playwright checks plus manual checklist | 1 (built screens), 3 (all) |
 | NFR-09 | Service-layer line coverage ≥ 80%; lint, build and tests pass on every PR. | Coverage report; CI from Lab 5, local results before | 1 local, Lab 5 CI |
+| NFR-10 | Login is limited to 10 failed attempts per 15 minutes per IP and email; sessions expire after 8 hours; state-changing requests require `application/json` and a matching `Origin`. Excess attempts return 429; expired sessions and failed origin/content-type checks are rejected without private data. | API tests for rate limiting, expired-session rejection and Origin/content-type checks | 1 |
 
 ## 8. Assumptions, decisions and open questions
 

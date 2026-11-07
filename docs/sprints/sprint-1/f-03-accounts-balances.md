@@ -1,6 +1,6 @@
 # F-03 Accounts and Balances: Engineering Contract
 
-Requirements: FR-08; BR-07; NFR-03 · Depends on: F-01 · Contract version: 1.0 · Suggested branch: `feature/F-03-accounts-balances`
+Requirements: FR-08; BR-01, BR-07; NFR-03 · Depends on: F-01 · Contract version: 1.0 · Suggested branch: `feature/F-03-accounts-balances`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 

@@ -14,14 +14,14 @@ Sprint 1 delivers a secure, tested, and verifiable vertical slice of Pangtao (Th
 
 | ID | Feature Name | Contract Document | Linked Requirements | Primary Role |
 |---|---|---|---|---|
-| **F-01** | Authentication & Authorization Foundation | [f-01-auth.md](f-01-auth.md) | FR-01–04; BR-01, 02; NFR-01, 02, 04 | Public / All |
-| **F-02** | Admin User Management | [f-02-admin-users.md](f-02-admin-users.md) | FR-05, 06; BR-03, 13 | Administrator |
-| **F-03** | Accounts and Balances | [f-03-accounts-balances.md](f-03-accounts-balances.md) | FR-08; BR-07; NFR-03 | User |
+| **F-01** | Authentication & Authorization Foundation | [f-01-auth.md](f-01-auth.md) | FR-01–04; BR-01, 02; NFR-01, 02, 04, 10 | Public / All |
+| **F-02** | Admin User Management | [f-02-admin-users.md](f-02-admin-users.md) | FR-05, 06; BR-02, 03, 13 | Administrator |
+| **F-03** | Accounts and Balances | [f-03-accounts-balances.md](f-03-accounts-balances.md) | FR-08; BR-01, 07; NFR-03 | User |
 | **F-04** | Opening Balance | [f-04-opening-balance.md](f-04-opening-balance.md) | FR-10; BR-04, 11 | User |
-| **F-05** | Payment and Charge | [f-05-payment-charge.md](f-05-payment-charge.md) | FR-12; BR-04–07, 09, 10 | User |
-| **F-06** | Received Money | [f-06-received-money.md](f-06-received-money.md) | FR-13; BR-04–07, 10 | User |
-| **F-07** | Transaction History | [f-07-transaction-history.md](f-07-transaction-history.md) | FR-17 | User |
-| **F-08** | Income and Expense Summary | [f-08-income-expense-summary.md](f-08-income-expense-summary.md) | FR-22; BR-08, 09 | User |
+| **F-05** | Payment and Charge | [f-05-payment-charge.md](f-05-payment-charge.md) | FR-12; BR-04–07, 09, 10, 16 | User |
+| **F-06** | Received Money | [f-06-received-money.md](f-06-received-money.md) | FR-13; BR-04–07, 10, 16 | User |
+| **F-07** | Transaction History | [f-07-transaction-history.md](f-07-transaction-history.md) | FR-17, 25 | User |
+| **F-08** | Income and Expense Summary | [f-08-income-expense-summary.md](f-08-income-expense-summary.md) | FR-22; BR-01, 08, 09 | User |
 
 ---
 
@@ -67,6 +67,7 @@ Internal server errors (HTTP 500) return a generic message and attach an `X-Requ
 | **400** | `INVALID_ALLOCATION_SUM` | Sum of allocation line amounts does not equal transaction total (BR-05). |
 | **400** | `FUTURE_DATE_NOT_ALLOWED` | Date is in the future relative to server `Asia/Bangkok` timezone (BR-10). |
 | **400** | `INVALID_TARGET_ACCOUNT` | Line target account is archived, of incompatible type, or matches source (BR-06). |
+| **400** | `INVALID_SOURCE_ACCOUNT` | Source account type is not allowed for the transaction form: Payment requires Cash or Loan Taken; Receipt requires Cash (BR-16). |
 | **401** | `INVALID_CREDENTIALS` | Unknown email, wrong password, or inactive user on login (FR-01). |
 | **401** | `UNAUTHENTICATED` | Missing, expired, or invalid session cookie on protected route (NFR-02). |
 | **403** | `FORBIDDEN` | Caller lacks the declared role or cross-origin check failed (FR-04, BR-02). |
@@ -110,3 +111,13 @@ A Sprint 1 feature is defined as **Done** and acceptable for integration into `m
 6. **Documentation & Traceability**:
    - Reproduction instructions verified on a fresh environment in $\le 6$ steps (NFR-05).
    - Any incomplete work, edge cases, or deferred items explicitly disclosed.
+
+---
+
+## 5. Contract version history
+
+| Version | Date | Change |
+|---|---|---|
+| 1.0 | 7 Nov 2026 | Initial Sprint 1 contracts (F-01–F-08) |
+
+All contracts in this folder are at version 1.0. Later revisions are recorded in this table and in the repository git history.

@@ -41,7 +41,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 | Endpoint | Request | Success | Errors |
 |---|---|---|---|
-| POST /api/v1/accounts/:id/opening-balance | `{ "amount": 5000000, "date": "2026-11-01" }` | 201 `{ "transaction": { "id", "kind": "OPENING_BALANCE", "accountId", "txnDate", "totalAmount" } }` | 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 OPENING_BALANCE_EXISTS |
+| POST /api/v1/accounts/:id/opening-balance | `{ "amount": 5000000, "date": "2026-11-01" }` | 201 `{ "transaction": { "id", "kind": "OPENING_BALANCE", "accountId", "txnDate", "totalAmount" } }` | 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 OPENING_BALANCE_EXISTS; 415 UNSUPPORTED_MEDIA_TYPE |
 
 - `amount`: integer satang, $\ge 0$.
 - `date`: `YYYY-MM-DD`, $\le$ today Bangkok time.
@@ -55,7 +55,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ### 2.3 Data
 
-- Stored in `transactions` with `kind = 'OPENING_BALANCE'`, `total_amount = amount`, `txn_date = date`, and `account_id = :id`. No rows created in `allocation_lines`.
+- Stored in `transactions` with `kind = 'OPENING_BALANCE'`, `total_amount = amount`, `txn_date = date`, and `account_id = :id`. No rows created in `allocation_lines`. No new tables or migrations; uses the `transactions` table from the System-Level SDS.
 - Database partial unique index:
   `CREATE UNIQUE INDEX unique_active_opening_balance ON transactions (account_id) WHERE kind = 'OPENING_BALANCE' AND voided_at IS NULL;`
 
@@ -70,9 +70,10 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-04.3 | An opening balance of 0 satang is accepted and returns 201. |
 | AC-04.4 | Submitting an opening balance on an account that already has one returns 409 OPENING_BALANCE_EXISTS and leaves the existing balance unchanged. |
 | AC-04.5 | Submitting an opening balance on an Income or Expense account returns 400 VALIDATION_ERROR. |
-| AC-04.6 | Specifying a date in the future (Bangkok time) returns 400 VALIDATION_ERROR with code `FUTURE_DATE_NOT_ALLOWED`. |
+| AC-04.6 | Specifying a date in the future (Bangkok time) returns 400 FUTURE_DATE_NOT_ALLOWED. |
 | AC-04.7 | Negative amounts or amounts exceeding $100,000,000.00\text{ THB}$ return 400 VALIDATION_ERROR. |
 | AC-04.8 | Attempting to set an opening balance on another user’s account returns 404 NOT_FOUND; Administrator caller receives 403 FORBIDDEN; anonymous receives 401. |
+| AC-04.9 | Setting a valid opening balance on a Loan Given account returns 201 and establishes the amount owed to the user baseline. |
 
 ---
 
@@ -85,9 +86,10 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-04.3** | AC-04.3 | U, A | Seeded database; Alice logged in; Wallet has 0 balance | POST `/api/v1/accounts/{walletId}/opening-balance` with `{ amount: 0, date: "2026-11-01" }` | 201 Created; Wallet balance remains 0; opening balance transaction recorded. |
 | **TEST-04.4** | AC-04.4 | A | Bank Account already has opening balance (TEST-04.1) | Submit second opening balance with `{ amount: 1000000, date: "2026-11-02" }` | 409 OPENING_BALANCE_EXISTS; database retains original $50,000.00\text{ THB}$ opening balance. |
 | **TEST-04.5** | AC-04.5 | A | Alice logged in; Salary account (`INCOME`) | POST opening balance to Salary account | 400 VALIDATION_ERROR; no transaction created. |
-| **TEST-04.6** | AC-04.6 | U, A | Alice logged in; Bank Account | POST opening balance with date tomorrow (Bangkok time) | 400 VALIDATION_ERROR (`FUTURE_DATE_NOT_ALLOWED`); nothing saved. |
+| **TEST-04.6** | AC-04.6 | U, A | Alice logged in; Bank Account | POST opening balance with date tomorrow (Bangkok time) | 400 FUTURE_DATE_NOT_ALLOWED; nothing saved. |
 | **TEST-04.7** | AC-04.7 | A | Alice logged in | POST opening balance with `{ amount: -100 }` and `{ amount: 10000000001 }` | 400 VALIDATION_ERROR for both requests. |
 | **TEST-04.8** | AC-04.8 | A | Bob logged in; Alice’s Bank Account ID | Bob calls POST opening balance on Alice’s bank; Admin calls it; anonymous calls it | Bob receives 404 NOT_FOUND; Admin receives 403 FORBIDDEN; Anonymous receives 401 UNAUTHENTICATED. Alice's account unchanged. |
+| **TEST-04.9** | AC-04.9 | A | Seeded database; Alice logged in; Loan Given account has 0 balance | POST `/api/v1/accounts/{loanGivenId}/opening-balance` with `{ amount: 2000000, date: "2026-11-01" }` | 201 Created; GET `/api/v1/accounts` shows the Loan Given balance `2000000` ($20,000.00\text{ THB}$). |
 
 ---
 

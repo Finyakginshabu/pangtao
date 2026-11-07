@@ -75,7 +75,7 @@ erDiagram
 
 Income and expense summaries read only lines whose target account type is Income or Expense, so transfers, borrowing, lending, repayments and opening balances are excluded by construction (BR-08).
 
-**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. Seed users: admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests reset and reseed the database before each test file.
+**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. Implementation will create seed data (actual values set during Sprint 1 development) with the following structure: seed users include admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. The four-transaction demonstration fixture used by the summary tests (TEST-08.1) is created by test code or documented demo steps, not by the seed. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests reset and reseed the database before each test file.
 
 ## 3. UI structure and conventions
 
@@ -84,6 +84,7 @@ Income and expense summaries read only lines whose target account type is Income
 | Login | /login | Anonymous | Email and password sign-in |
 | Dashboard | / | User | Balances grouped by account type; current-month income and expense; opening balance action per account |
 | Transactions | /transactions | User | Paginated history (filters arrive in Sprint 3) |
+| Transaction detail | /transactions/:id | User | One transaction with its allocation lines |
 | New transaction | /transactions/new | User | Pay and Receive tabs with an allocation-lines editor |
 | Summary | /summary | User | Income, expense and net for a date range |
 | Users | /admin/users | Administrator | List users; enable or disable |
@@ -107,7 +108,7 @@ Sprint 2 and 3 add Accounts, Loans, Favorites and Reports screens in the same na
 - IDs are UUID strings, dates are `YYYY-MM-DD`, amounts are integer satang. The client never sends a user id or role; both come from the session.
 - Status codes: 200, 201, 204; 400 invalid input or violated business rule (with a specific error code); 401 not logged in; 403 wrong role; 404 not found, including another user’s record; 409 state conflict (for example, a second opening balance); 429 too many login attempts; 500 generic.
 - Error body: `error: { code, message, details[] }`, where details name the field and the issue. Unexpected errors return a generic message and an `X-Request-Id` header; the stack trace and SQL stay in server logs only.
-- Lists use `limit` (default 50, maximum 100) and `offset`, and return `items`, `total`, `limit`, `offset`.
+- Lists use `limit` (default 50, maximum 100) and `offset`, and return `items`, `total`, `limit`, `offset`. The account list is the exception: it is bounded per user and returns `{ items }` only.
 
 | Method and path | Role | Purpose |
 |---|---|---|
