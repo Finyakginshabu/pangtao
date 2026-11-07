@@ -1,6 +1,6 @@
 # F-07 Transaction History: Engineering Contract
 
-Requirements: FR-17 · Depends on: F-05, F-06 · Contract version: 1.0 · Suggested branch: `feature/F-07-transaction-history`
+Requirements: FR-17, FR-25; BR-01 · Depends on: F-05, F-06 · Contract version: 1.0 · Suggested branch: `feature/F-07-transaction-history`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -46,7 +46,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ### 2.3 Data
 
-- Queries `transactions` joined with `accounts` (source name) and `allocation_lines` joined with `accounts` (target name).
+- Queries `transactions` joined with `accounts` (source name) and `allocation_lines` joined with `accounts` (target name). No new tables or migrations; uses the schema defined in the System-Level SDS.
 - Supported by database index: `CREATE INDEX idx_transactions_user_date ON transactions (user_id, txn_date DESC, created_at DESC);`
 
 ---
@@ -61,6 +61,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-07.4 | Attempting to access a transaction ID belonging to another user returns 404 NOT_FOUND (no data leakage). |
 | AC-07.5 | An Administrator calling transaction history endpoints receives 403 FORBIDDEN; anonymous caller receives 401 UNAUTHENTICATED. |
 | AC-07.6 | In the browser, the history screen displays all 4 demo transactions with correct formatted amounts, expandable split lines, and handles empty and error states. |
+| AC-07.7 | A negative `offset` or a `limit` above 100 returns 400 VALIDATION_ERROR and no items. |
 
 ---
 
@@ -74,6 +75,8 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-07.4** | AC-07.4 | A | Bob logged in; Alice has transaction `txn-alice-salary` | Bob calls `GET /api/v1/transactions/{txn-alice-salary}` | 404 NOT_FOUND; zero transaction details returned. |
 | **TEST-07.5** | AC-07.5 | A | Admin logged in | Admin calls `GET /api/v1/transactions` | 403 FORBIDDEN; no transaction records returned. |
 | **TEST-07.6** | AC-07.6 | E | Alice logged in with 4 transactions | Open `/transactions` in browser; click on multi-line card purchase row | History table renders 4 rows; card purchase expands to reveal Dining 700.00 ฿ and Groceries 500.00 ฿ lines. |
+| **TEST-07.7** | AC-07.5 | A | Seeded database; no session cookie | Anonymous calls `GET /api/v1/transactions` and `GET /api/v1/transactions/{txn-card-charge}` | Both return 401 UNAUTHENTICATED; zero records returned. |
+| **TEST-07.8** | AC-07.7 | A | Alice logged in | GET `/api/v1/transactions?offset=-1`; then GET `/api/v1/transactions?limit=101` | Each returns 400 VALIDATION_ERROR; no items returned. |
 
 ---
 

@@ -32,8 +32,9 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | FR-22 | F-08 | 1 | AC-08.x / TEST-08.x · U, A, E |
 | FR-23 | F-16 | 3 | Contract in Sprint 3 · A |
 | FR-24 | F-16 | 3 | Contract in Sprint 3 · A |
-| BR-01 | F-01 | 1 | AC-01.x · A (cross-user access) |
-| BR-02 | F-01 | 1 | AC-01.x · A (admin denied financial data) |
+| FR-25 | F-07 | 1 | AC-07.3 / TEST-07.3 · A |
+| BR-01 | F-01 (all routes), F-03, F-07, F-08 | 1 | AC-01.x, 03.x, 07.x, 08.x · A (cross-user access) |
+| BR-02 | F-01 (all routes), F-02, F-03, F-07, F-08 | 1 | AC-01.x, 02.x, 03.x, 07.x, 08.x · A (admin denied financial data) |
 | BR-03 | F-02 | 1 | AC-02.x · A |
 | BR-04 | F-04, F-05, F-06 | 1 | AC-04.x, 05.x, 06.x · U, A |
 | BR-05 | F-05, F-06 | 1 | AC-05.x, 06.x · U, A |
@@ -47,19 +48,21 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | BR-13 | F-02 | 1 | AC-02.x · A |
 | BR-14 | F-09 | 2 | Contract in Sprint 2 · A |
 | BR-15 | F-15 | 3 | Contract in Sprint 3 · A |
+| BR-16 | F-05, F-06 | 1 | AC-05.10, AC-06.4 / TEST-05.10, TEST-06.4 · A |
 | NFR-01 | F-01 | 1 | AC-01.x · A |
 | NFR-02 | F-01 (all routes) | 1, re-run in 2, 3 | AC-01.x · A route-list test |
 | NFR-03 | F-03 | 1, re-run in 2 | AC-03.x · U, A invariant test |
 | NFR-04 | F-01 | 1 | AC-01.x · A |
-| NFR-05 | F-19 | 1 local, Lab 5 Docker | README run-through; Lab 5 evidence |
-| NFR-06 | F-19 | 1 local, Lab 5 | Restart check; Lab 5 evidence |
+| NFR-05 | F-19 (local run verified in Sprint 1; Docker in Lab 5) | 1 local, Lab 5 Docker | README run-through; Lab 5 evidence |
+| NFR-06 | F-19 (local restart check in Sprint 1; redeploy in Lab 5) | 1 local, Lab 5 | Restart check; Lab 5 evidence |
 | NFR-07 | F-18 | 3 | Timing script |
-| NFR-08 | F-18 | 1 (built screens), 3 | E checks plus checklist |
+| NFR-08 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08 (Sprint 1 screens), F-18 (all) | 1 (built screens), 3 | E checks plus checklist |
 | NFR-09 | F-19 | 1 local, Lab 5 CI | Coverage report; CI runs |
+| NFR-10 | F-01 | 1 | AC-01.6, AC-01.12, AC-01.13 / TEST-01.6, TEST-01.12, TEST-01.13 · A |
 
 ## 2. Coverage and change status
 
-Baseline v1.0 contains 24 FR, 15 BR and 9 NFR. Every one is mapped to a feature or system responsibility and a sprint. Sprint 1 carries 12 FR (FR-01–06, 08, 10, 12, 13, 17, 22), Sprint 2 carries 6 (FR-09, 11, 14, 15, 16, 21) and Sprint 3 carries 6 (FR-07, 18, 19, 20, 23, 24). **Uncovered requirements: none.**
+Baseline v1.0 contains 25 FR, 16 BR and 10 NFR. Every one is mapped to a feature or system responsibility and a sprint. Sprint 1 carries 13 FR (FR-01–06, 08, 10, 12, 13, 17, 22, 25), Sprint 2 carries 6 (FR-09, 11, 14, 15, 16, 21) and Sprint 3 carries 6 (FR-07, 18, 19, 20, 23, 24). **Uncovered requirements: none.**
 
 | Version | Date | Change | Approved |
 |---|---|---|---|
