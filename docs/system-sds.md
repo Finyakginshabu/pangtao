@@ -160,7 +160,11 @@ Later features (account management, loans, transfers, edit and void, search, fav
 |---|---|---|
 | NODE_ENV | development | Environment mode |
 | PORT | 8080 | HTTP port |
-| DATABASE_URL | postgresql://ledger:change-me@localhost:5432/ledger | Database connection (placeholder values) |
+| POSTGRES_USER | postgres | PostgreSQL user (docker-compose) |
+| POSTGRES_PASSWORD | postgres | PostgreSQL password (docker-compose) |
+| POSTGRES_DB | pangtao_db | PostgreSQL database name (docker-compose) |
+| POSTGRES_PORT | 5432 | PostgreSQL host port (docker-compose) |
+| DATABASE_URL | postgresql://postgres:postgres@localhost:5432/pangtao_db | Database connection URL |
 | SESSION_TTL_HOURS | 8 | Session lifetime |
 | COOKIE_SECURE | false (true in production) | Secure flag on the cookie |
 | BCRYPT_COST | 12 | Password hash cost |
