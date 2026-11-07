@@ -1,6 +1,6 @@
 # F-02 Admin User Management: Engineering Contract
 
-Requirements: FR-05, FR-06; BR-03, BR-13 · Depends on: F-01 · Contract version: 1.0 · Suggested branch: `feature/F-02-admin-users`
+Requirements: FR-05, FR-06; BR-02, BR-03, BR-13 · Depends on: F-01 · Contract version: 1.0 · Suggested branch: `feature/F-02-admin-users`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -41,7 +41,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | Endpoint | Request | Success | Errors |
 |---|---|---|---|
 | GET /api/v1/admin/users?limit&offset | none | 200 `{ items: [ { id, email, displayName, role, isActive, createdAt } ], total, limit, offset }` | 401 UNAUTHENTICATED; 403 FORBIDDEN; 400 VALIDATION_ERROR |
-| PATCH /api/v1/admin/users/:id | `{ "isActive": false }` | 200 `{ user: { id, email, displayName, role, isActive, createdAt } }` | 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 CANNOT_DISABLE_SELF |
+| PATCH /api/v1/admin/users/:id | `{ "isActive": false }` | 200 `{ user: { id, email, displayName, role, isActive, createdAt } }` | 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 CANNOT_DISABLE_SELF; 415 UNSUPPORTED_MEDIA_TYPE |
 
 - `limit` defaults to 50, maximum 100.
 - Payload exposes only non-financial attributes: `id`, `email`, `displayName`, `role`, `isActive`, `createdAt`.
@@ -71,6 +71,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-02.6 | An Administrator attempting to deactivate their own account receives 409 CANNOT_DISABLE_SELF and remains active and authenticated. |
 | AC-02.7 | Passing a non-existent UUID returns 404 NOT_FOUND; malformed UUIDs or invalid payload types return 400 VALIDATION_ERROR. |
 | AC-02.8 | In the browser, the Administrator can toggle user status with modal confirmation, observe real-time row updates, and see their own action button disabled. |
+| AC-02.9 | Deactivating an already deactivated user returns 200 OK and leaves the account disabled; re-enabling an already active user likewise succeeds without error. |
 
 ---
 
@@ -79,13 +80,14 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | Test | AC | Level | Precondition and input | Action | Expected result |
 |---|---|---|---|---|---|
 | **TEST-02.1** | AC-02.1 | A | Seeded database; Admin logged in | GET `/api/v1/admin/users?limit=10&offset=0` | 200 OK; array containing Admin, Alice, and Bob; fields limited strictly to `id`, `email`, `displayName`, `role`, `isActive`, `createdAt`; payload contains no financial fields (`balance`, `accounts`, `transactions`). |
-| **TEST-02.2** | AC-02.2 | A | Seeded database; Alice logged in | Alice calls `GET /api/v1/admin/users` and `PATCH /api/v1/admin/users/{bobId}` | Both return 403 FORBIDDEN; zero user modifications occur. |
+| **TEST-02.2** | AC-02.2 | A | Seeded database; Alice logged in; separate anonymous request | Alice calls `GET /api/v1/admin/users` and `PATCH /api/v1/admin/users/{bobId}`; anonymous calls both | Alice receives 403 FORBIDDEN; anonymous receives 401 UNAUTHENTICATED; zero user modifications occur. |
 | **TEST-02.3** | AC-02.3 | A | Admin logged in; Alice active | Admin calls PATCH `/api/v1/admin/users/{aliceId}` with `{ isActive: false }`; Alice calls POST `/api/v1/auth/login` | PATCH returns 200 with `isActive: false`; Alice login returns 401 INVALID_CREDENTIALS. |
 | **TEST-02.4** | AC-02.4 | A, E | Alice has active session cookie `sid_alice`; Admin logged in | Admin calls PATCH `/api/v1/admin/users/{aliceId}` with `{ isActive: false }`; Alice calls GET `/api/v1/auth/me` with `sid_alice` | Alice's request returns 401 UNAUTHENTICATED; database inspection confirms 0 sessions exist for `aliceId`. |
 | **TEST-02.5** | AC-02.5 | A | Alice disabled (from TEST-02.3); Admin logged in | Admin calls PATCH `/api/v1/admin/users/{aliceId}` with `{ isActive: true }`; Alice logs in | PATCH returns 200 with `isActive: true`; Alice login succeeds with 200 OK and receives a valid session cookie. |
 | **TEST-02.6** | AC-02.6 | A | Admin logged in (`adminId`) | Admin calls PATCH `/api/v1/admin/users/{adminId}` with `{ isActive: false }` | 409 CANNOT_DISABLE_SELF; Admin user in database remains `is_active: true`. |
 | **TEST-02.7** | AC-02.7 | A | Admin logged in | Admin calls PATCH with random UUID; malformed UUID `abc-123`; payload `{ isActive: "no" }`; payload `{ isActive: false, role: "ADMIN" }` | First returns 404 NOT_FOUND; remaining three return 400 VALIDATION_ERROR. |
 | **TEST-02.8** | AC-02.8 | E | Seeded database; Admin logged in | In browser: open `/admin/users`; disable Bob and confirm; verify status badge updates to Disabled; verify Admin row button is disabled; re-enable Bob | Bob's status toggles visually; Admin row cannot be deactivated; UI shows loading skeleton and handles error retry. |
+| **TEST-02.9** | AC-02.9 | A | Bob already disabled; Admin logged in | Admin calls PATCH `/api/v1/admin/users/{bobId}` with `{ isActive: false }` again | 200 OK with `isActive: false`; no error and no duplicate side effects. |
 
 ---
 

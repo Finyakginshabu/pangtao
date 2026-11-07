@@ -1,6 +1,6 @@
 # F-01 Authentication and Authorization Foundation: Engineering Contract
 
-Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04 · Depends on: none · Contract version: 1.0 · Suggested branch: `feature/F-01-auth-foundation`
+Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.0 · Suggested branch: `feature/F-01-auth-foundation`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -54,8 +54,8 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 | Endpoint | Request | Success | Errors |
 |---|---|---|---|
-| POST /api/v1/auth/login | `{ "email": "alice@example.test", "password": "…" }` | 200 `{ "user": { "id", "displayName", "email", "role" } }` and `Set-Cookie: sid` | 400 VALIDATION_ERROR; 401 INVALID_CREDENTIALS; 415 UNSUPPORTED_MEDIA_TYPE; 429 RATE_LIMITED |
-| POST /api/v1/auth/logout | none | 204, cookie cleared | 401 UNAUTHENTICATED |
+| POST /api/v1/auth/login | `{ "email": "alice@example.test", "password": "…" }` | 200 `{ "user": { "id", "displayName", "email", "role" } }` and `Set-Cookie: sid` | 400 VALIDATION_ERROR; 401 INVALID_CREDENTIALS; 403 FORBIDDEN; 415 UNSUPPORTED_MEDIA_TYPE; 429 RATE_LIMITED |
+| POST /api/v1/auth/logout | none | 204, cookie cleared | 401 UNAUTHENTICATED; 403 FORBIDDEN; 415 UNSUPPORTED_MEDIA_TYPE |
 | GET /api/v1/auth/me | none | 200 `{ "user": { "id", "displayName", "email", "role" } }` | 401 UNAUTHENTICATED |
 | GET /api/v1/health | none | 200 `{ "status": "ok" }` after DB ping | 503 `{ "status": "degraded" }` |
 
@@ -108,7 +108,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-01.6** | AC-01.6 | A | Active session with `expires_at` shifted to 1 second in the past | GET `/api/v1/auth/me` | 401 UNAUTHENTICATED; expired session deleted from database. |
 | **TEST-01.7** | AC-01.7 | A | Server route registry | Send anonymous request to all registered API endpoints; register test route lacking access declaration | All endpoints return 401 UNAUTHENTICATED; registering route without access declaration throws during server boot. |
 | **TEST-01.8** | AC-01.8 | A | Admin and Alice logged in | Admin calls `GET /api/v1/accounts`; Alice calls `GET /api/v1/admin/users` | Both return 403 FORBIDDEN with no domain data. |
-| **TEST-01.9** | AC-01.9 | A | Alice owns account `id-alice-bank`; Bob logged in | Bob calls `GET /api/v1/accounts/id-alice-bank` | 404 NOT_FOUND; zero record data returned. |
+| **TEST-01.9** | AC-01.9 | A | Alice owns transaction `txn-alice-salary`; Bob logged in | Bob calls `GET /api/v1/transactions/txn-alice-salary` | 404 NOT_FOUND; zero record data returned. |
 | **TEST-01.10** | AC-01.10 | A | Seeded database | Inspect `users.password_hash` in DB; static code search for seed password in codebase | All hashes match `$2b$12$` format; static search finds no plaintext passwords in source or test files. |
 | **TEST-01.11** | AC-01.11 | A | Route throwing simulated database crash error with raw SQL | Request crashing route | 500 INTERNAL_ERROR with generic message and `X-Request-Id`; response body contains no SQL, table names, or stack traces. |
 | **TEST-01.12** | AC-01.12 | A | Rate limiter configured (10 attempts / 15 min) | Submit 10 wrong-password logins for Alice, then 11th attempt with correct password; submit 1 attempt for Bob | 11th attempt for Alice returns 429 RATE_LIMITED; attempt for Bob returns 401 (independent quota). |
