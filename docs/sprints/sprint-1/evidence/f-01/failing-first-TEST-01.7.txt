@@ -1,0 +1,70 @@
+# F-01 evidence: retroactive failing-first check for TEST-01.7
+# Command : npx vitest run tests/api/auth.api.test.ts -t "TEST-01.7" --reporter=verbose
+# Commit  : 40f41f6684f0c731a80cfc1b05aaf02d429783df (style(web): update wordmark logo text)
+# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md, docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-10 22:04:17 (Asia/Bangkok)
+# Node    : v24.19.0
+# DISCLOSURE: the original F-01 commit added tests and implementation together, so no
+# red-to-green commit history exists. This is a retroactive mutation check: the behavior
+# is removed, the test is shown failing, the file is restored byte-for-byte (verified
+# against git), and the same test is shown passing again.
+# Mutation: access(...) declaration removed from GET /api/v1/health
+
+## 1. Mutation applied (temporary, never committed)
+
+diff --git a/server/src/routes/health.routes.ts b/server/src/routes/health.routes.ts
+index 2b9cd7c..47221cf 100644
+--- a/server/src/routes/health.routes.ts
++++ b/server/src/routes/health.routes.ts
+@@ -4,7 +4,7 @@ import { access } from '../middleware/route-guard.middleware.js';
+ 
+ const router = Router();
+ 
+-router.get('/health', access('public'), async (_req: Request, res: Response) => {
++router.get('/health', async (_req: Request, res: Response) => {
+   try {
+     await prisma.$queryRaw`SELECT 1`;
+     res.status(200).json({ status: 'ok' });
+
+## 2. TEST-01.7 with the behavior removed: exit code 1 (expected: failure)
+
+
+ RUN  v2.1.9 <repo>
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  22:05:08
+   Duration  1.61s (transform 73ms, setup 10ms, collect 0ms, tests 0ms, environment 0ms, prepare 50ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/auth.api.test.ts [ tests/api/auth.api.test.ts ]
+Error: [NFR-02 Violation] Routes without a declared access guard (first handler must be access(...)): GET /api/v1/health
+ ❯ Module.assertRoutesGuarded server/src/middleware/route-guard.middleware.ts:94:11
+     92|   walk(stack, '', routes, violations);
+     93|   if (violations.length > 0) {
+     94|     throw new Error(
+       |           ^
+     95|       `[NFR-02 Violation] Routes without a declared access guard (firs…
+     96|     );
+ ❯ createApp server/src/app.ts:73:3
+ ❯ server/src/app.ts:78:20
+ ❯ tests/api/auth.api.test.ts:7:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+## 3. TEST-01.7 after restoring server/src/routes/health.routes.ts: exit code 0 (expected: pass)
+
+
+ RUN  v2.1.9 <repo>
+
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.7 (AC-01.7): Every registered protected route returns 401 to anonymous requests; an undeclared route halts app creation
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 16 skipped (17)
+   Start at  22:05:11
+   Duration  1.87s (transform 77ms, setup 10ms, collect 311ms, tests 244ms, environment 0ms, prepare 50ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

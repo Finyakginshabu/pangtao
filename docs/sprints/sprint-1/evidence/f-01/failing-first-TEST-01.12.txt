@@ -1,0 +1,76 @@
+# F-01 evidence: retroactive failing-first check for TEST-01.12
+# Command : npx vitest run tests/api/auth.api.test.ts -t "TEST-01.12" --reporter=verbose
+# Commit  : 40f41f6684f0c731a80cfc1b05aaf02d429783df (style(web): update wordmark logo text)
+# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md, docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-10 22:04:17 (Asia/Bangkok)
+# Node    : v24.19.0
+# DISCLOSURE: the original F-01 commit added tests and implementation together, so no
+# red-to-green commit history exists. This is a retroactive mutation check: the behavior
+# is removed, the test is shown failing, the file is restored byte-for-byte (verified
+# against git), and the same test is shown passing again.
+# Mutation: login rate limit loosened from 10 to 11 failed attempts
+
+## 1. Mutation applied (temporary, never committed)
+
+diff --git a/server/src/middleware/rate-limit.middleware.ts b/server/src/middleware/rate-limit.middleware.ts
+index dbdd0c8..a4152c1 100644
+--- a/server/src/middleware/rate-limit.middleware.ts
++++ b/server/src/middleware/rate-limit.middleware.ts
+@@ -8,7 +8,7 @@ interface AttemptRecord {
+ 
+ const attemptStore = new Map<string, AttemptRecord>();
+ const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+-const MAX_ATTEMPTS = 10;
++const MAX_ATTEMPTS = 11;
+ 
+ export function recordFailedLogin(ip: string, email: string): void {
+   const key = `${ip}:${email.trim().toLowerCase()}`;
+
+## 2. TEST-01.12 with the behavior removed: exit code 1 (expected: failure)
+
+
+ RUN  v2.1.9 <repo>
+
+ × tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED 2316ms
+   → expected 200 to be 429 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 skipped (17)
+   Start at  22:05:14
+   Duration  3.97s (transform 81ms, setup 11ms, collect 321ms, tests 2.33s, environment 0ms, prepare 50ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED
+AssertionError: expected 200 to be 429 // Object.is equality
+
+- Expected
++ Received
+
+- 429
++ 200
+
+ ❯ tests/api/auth.api.test.ts:309:28
+    307|     // 11th attempt (even with correct password) must return 429
+    308|     const res11th = await post('/api/v1/auth/login').send({ email: 'al…
+    309|     expect(res11th.status).toBe(429);
+       |                            ^
+    310|     expect(res11th.body.error.code).toBe('RATE_LIMITED');
+    311| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+## 3. TEST-01.12 after restoring server/src/middleware/rate-limit.middleware.ts: exit code 0 (expected: pass)
+
+
+ RUN  v2.1.9 <repo>
+
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED 2481ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 16 skipped (17)
+   Start at  22:05:19
+   Duration  4.09s (transform 73ms, setup 10ms, collect 296ms, tests 2.50s, environment 0ms, prepare 49ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

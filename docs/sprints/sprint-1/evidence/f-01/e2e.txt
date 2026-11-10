@@ -1,0 +1,18 @@
+# F-01 evidence: Playwright end-to-end (TEST-01.14)
+# Command : npx playwright test --reporter=list
+# Commit  : 40f41f6684f0c731a80cfc1b05aaf02d429783df (style(web): update wordmark logo text)
+# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md, docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-10 22:04:17 (Asia/Bangkok)
+# Node    : v24.19.0
+# Result  : 1/1 tests passed (every per-test line is "ok")
+# Exit    : all results were reported, but Playwright did not exit within 15 s afterwards (a known
+#           Windows teardown stall when run from a script), so the evidence script stopped it.
+# Servers : the API (npm run dev:server) and web (npm run dev:web) dev servers were started by
+#           the evidence script for this run and reused by Playwright.
+
+
+Running 1 test using 1 worker
+
+(node:6024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\auth.spec.ts:10:3 › TEST-01.14 (AC-01.14): End-to-End Authentication Journey › User login, route protection, logout, and role isolation (1.4s)
