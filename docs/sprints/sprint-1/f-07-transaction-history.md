@@ -84,6 +84,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 - Every AC above has an executed automated test with results documented.
 - Failing-first evidence is retained for AC-07.4 (cross-user access isolation).
+- TEST-07.4 also discharges F-01 AC-01.9 / TEST-01.9, whose verification moved here in f-01 v1.1.
 - Query performance verified: index `idx_transactions_user_date` utilized in query execution plan.
 - Product Definition of Done in [README.md](README.md) is met.
 

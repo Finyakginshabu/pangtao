@@ -75,7 +75,7 @@ erDiagram
 
 Income and expense summaries read only lines whose target account type is Income or Expense, so transfers, borrowing, lending, repayments and opening balances are excluded by construction (BR-08).
 
-**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. Implementation will create seed data (actual values set during Sprint 1 development) with the following structure: seed users include admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. The four-transaction demonstration fixture used by the summary tests (TEST-08.1) is created by test code or documented demo steps, not by the seed. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests reset and reseed the database before each test file.
+**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. Implementation will create seed data (actual values set during Sprint 1 development) with the following structure: seed users include admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. The four-transaction demonstration fixture used by the summary tests (TEST-08.1) is created by test code or documented demo steps, not by the seed. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests run against a separate test database (`<database>_test`, migrated automatically before each run) and reset and reseed it before each test file, running files sequentially; the development database is never touched.
 
 ## 3. UI structure and conventions
 
@@ -160,7 +160,11 @@ Later features (account management, loans, transfers, edit and void, search, fav
 |---|---|---|
 | NODE_ENV | development | Environment mode |
 | PORT | 8080 | HTTP port |
-| DATABASE_URL | postgresql://ledger:change-me@localhost:5432/ledger | Database connection (placeholder values) |
+| POSTGRES_USER | postgres | PostgreSQL user (docker-compose) |
+| POSTGRES_PASSWORD | postgres | PostgreSQL password (docker-compose) |
+| POSTGRES_DB | pangtao_db | PostgreSQL database name (docker-compose) |
+| POSTGRES_PORT | 5432 | PostgreSQL host port (docker-compose) |
+| DATABASE_URL | postgresql://postgres:postgres@localhost:5432/pangtao_db | Database connection URL |
 | SESSION_TTL_HOURS | 8 | Session lifetime |
 | COOKIE_SECURE | false (true in production) | Secure flag on the cookie |
 | BCRYPT_COST | 12 | Password hash cost |

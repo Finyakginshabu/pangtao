@@ -33,7 +33,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | FR-23 | F-16 | 3 | Contract in Sprint 3 · A |
 | FR-24 | F-16 | 3 | Contract in Sprint 3 · A |
 | FR-25 | F-07 | 1 | AC-07.3 / TEST-07.3 · A |
-| BR-01 | F-01 (all routes), F-03, F-07, F-08 | 1 | AC-01.x, 03.x, 07.x, 08.x · A (cross-user access) |
+| BR-01 | F-01 (all routes), F-03, F-07, F-08 | 1 | AC-01.x, 03.x, 07.x, 08.x · A (cross-user access); AC-01.9 verified by TEST-07.4 (f-01 v1.1) |
 | BR-02 | F-01 (all routes), F-02, F-03, F-07, F-08 | 1 | AC-01.x, 02.x, 03.x, 07.x, 08.x · A (admin denied financial data) |
 | BR-03 | F-02 | 1 | AC-02.x · A |
 | BR-04 | F-04, F-05, F-06 | 1 | AC-04.x, 05.x, 06.x · U, A |
@@ -67,5 +67,6 @@ Baseline v1.0 contains 25 FR, 16 BR and 10 NFR. Every one is mapped to a feature
 | Version | Date | Change | Approved |
 |---|---|---|---|
 | v1.0 | 7 Nov 2026 | Initial baseline | Team |
+| v1.1 | 10 Nov 2026 | F-01 contract v1.1: AC-01.9 verification moved to F-07 (TEST-07.4); no requirement added or dropped | Pending teammate review (PR #10) |
 
 All assumptions and decisions (A-01–A-04, D-01–D-07) are fully resolved and agreed by the team; zero open items remain.
