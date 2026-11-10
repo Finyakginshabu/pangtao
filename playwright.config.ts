@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+// Load the repo-root .env (SEED_DEFAULT_PASSWORD etc.) for the runner, workers and web servers.
+import './server/src/env';
 
 export default defineConfig({
   testDir: './tests/e2e',

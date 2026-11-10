@@ -1,13 +1,12 @@
+import { requireEnv } from '../server/src/env.js';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const prisma = new PrismaClient();
 
 const BCRYPT_COST = parseInt(process.env.BCRYPT_COST || '12', 10);
-const SEED_DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'Password123!';
+// NFR-01 / AC-01.10: the seed password lives only in the git-ignored .env; no fallback in source.
+const SEED_DEFAULT_PASSWORD = requireEnv('SEED_DEFAULT_PASSWORD');
 
 async function main() {
   console.log('🌱 Seeding database...');

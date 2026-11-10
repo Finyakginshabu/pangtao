@@ -12,6 +12,7 @@
     "dev": "npm run dev --workspace=server",
     "build": "npm run build --workspaces",
     "test": "vitest run",
+    "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:api": "vitest run tests/api",
     "test:e2e": "playwright test",

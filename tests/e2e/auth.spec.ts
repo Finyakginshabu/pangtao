@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+// AC-01.10: the seed password comes from the local .env, never from source.
+const SEED_PASSWORD = process.env.SEED_DEFAULT_PASSWORD;
+if (!SEED_PASSWORD) {
+  throw new Error('SEED_DEFAULT_PASSWORD must be set in .env to run the E2E suite.');
+}
+
 test.describe('TEST-01.14 (AC-01.14): End-to-End Authentication Journey', () => {
   test('User login, route protection, logout, and role isolation', async ({ page }) => {
     // 1. Visit root while unauthenticated -> redirected to /login
@@ -8,7 +14,7 @@ test.describe('TEST-01.14 (AC-01.14): End-to-End Authentication Journey', () => 
 
     // 2. Submit invalid credentials -> error alert shown
     await page.fill('#email', 'alice@example.test');
-    await page.fill('#password', 'WrongPassword123');
+    await page.fill('#password', 'definitely-not-the-password');
     await page.click('button[type="submit"]');
 
     const alert = page.locator('div[role="alert"]');
@@ -16,7 +22,7 @@ test.describe('TEST-01.14 (AC-01.14): End-to-End Authentication Journey', () => 
     await expect(alert).toContainText('Invalid email or password');
 
     // 3. Submit valid credentials for Alice (Role: USER)
-    await page.fill('#password', 'Password123!');
+    await page.fill('#password', SEED_PASSWORD);
     await page.click('button[type="submit"]');
 
     // Should land on Dashboard (/)
@@ -39,7 +45,7 @@ test.describe('TEST-01.14 (AC-01.14): End-to-End Authentication Journey', () => 
 
     // 7. Admin login (Role: ADMIN) -> lands on /admin/users
     await page.fill('#email', 'admin@example.test');
-    await page.fill('#password', 'Password123!');
+    await page.fill('#password', SEED_PASSWORD);
     await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL(/.*\/admin\/users/);
