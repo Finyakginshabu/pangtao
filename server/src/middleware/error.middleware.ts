@@ -18,8 +18,14 @@ export class AppError extends Error {
   }
 }
 
+/** body-parser rejects malformed JSON with a SyntaxError tagged `type: 'entity.parse.failed'`. */
+function isMalformedJsonError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  return (err as { type?: unknown }).type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err);
+}
+
 export function errorHandler(
-  err: any,
+  err: unknown,
   req: Request,
   res: Response,
   _next: NextFunction
@@ -54,7 +60,7 @@ export function errorHandler(
   }
 
   // Malformed JSON body parser error
-  if (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err)) {
+  if (isMalformedJsonError(err)) {
     return res.status(400).json({
       error: {
         code: 'VALIDATION_ERROR',

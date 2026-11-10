@@ -16,7 +16,8 @@ export default defineConfig({
       provider: 'v8',
       include: ['server/src/**/*.ts'],
       exclude: ['server/src/index.ts', 'server/src/types/**'],
-      reporter: ['text', 'json', 'html'],
+      // Wide text table so full file names show in logs (non-TTY output defaults to 80 columns).
+      reporter: [['text', { maxCols: 200 }], 'json', 'html'],
     },
   },
 });

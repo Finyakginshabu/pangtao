@@ -99,11 +99,21 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
 
     const resBadMail = await post('/api/v1/auth/login').send({ email: 'not-an-email', password: '123' });
     expect(resBadMail.status).toBe(400);
-    expect(resBadMail.body.error.details.some((d: any) => d.field === 'email')).toBe(true);
+    expect(resBadMail.body.error.details.some((d: { field?: string }) => d.field === 'email')).toBe(true);
 
     const resEmptyPass = await post('/api/v1/auth/login').send({ email: 'alice@example.test', password: '' });
     expect(resEmptyPass.status).toBe(400);
-    expect(resEmptyPass.body.error.details.some((d: any) => d.field === 'password')).toBe(true);
+    expect(resEmptyPass.body.error.details.some((d: { field?: string }) => d.field === 'password')).toBe(true);
+  });
+
+  it('Contract §2.1: a malformed JSON body returns 400 VALIDATION_ERROR without parser details', async () => {
+    const res = await post('/api/v1/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"email": "alice@example.test", "password": ');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: { code: 'VALIDATION_ERROR', message: 'Malformed JSON payload' } });
+    expect(res.text).not.toContain('SyntaxError');
   });
 
   it('TEST-01.4 (AC-01.4): GET /auth/me returns identity with valid cookie; 401 without cookie or with forged cookie', async () => {

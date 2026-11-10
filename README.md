@@ -91,3 +91,14 @@ Tests need PostgreSQL running (`docker compose up -d`). No app server needs to b
   npx tsc --noEmit -p server/tsconfig.json
   npx tsc --noEmit -p web/tsconfig.json
   ```
+
+* **Lint** (zero warnings allowed) and **coverage** (NFR-09, ≥ 80%):
+  ```powershell
+  npm run lint
+  npm run test:coverage
+  ```
+
+* **Regenerate recorded evidence** for a committed version (see [docs/sprints/sprint-1/evidence/](docs/sprints/sprint-1/evidence/README.md)):
+  ```powershell
+  npm run evidence:f-01
+  ```

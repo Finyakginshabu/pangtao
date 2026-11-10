@@ -120,5 +120,6 @@ A Sprint 1 feature is defined as **Done** and acceptable for integration into `m
 |---|---|---|
 | 1.0 | 7 Nov 2026 | Initial Sprint 1 contracts (F-01–F-08) |
 | 1.1 | 10 Nov 2026 | F-01 (PR #10 review): AC-01.9/TEST-01.9 verification moved to F-07 (TEST-07.4), since no financial record exists before F-05; TEST-01.8, TEST-01.11 and TEST-01.13 documented as running on test-only fixture routes (`NODE_ENV=test`) until F-02/F-03/F-05 deliver the real endpoints; AC-01.13 and §2.2 tightened so a missing `Origin` is 403 and a body without a JSON Content-Type is 415; AC-01.7 boot check defined as a walk of the mounted route table. F-07: DoD notes that TEST-07.4 also discharges AC-01.9. |
+| 1.2 | 10 Nov 2026 | F-01 (PR #10 second review): §5 DoD no longer claims every AC is tested in F-01 (AC-01.9 excluded, F-01 Done once TEST-07.4 passes) and links the recorded results in `evidence/f-01/`; failing-first evidence disclosed as retroactive mutation checks because the original F-01 commit was not test-first; §2.3 migration name corrected to the real `20261107163413_init_users_sessions`. |
 
-F-01 is at version 1.1; all other contracts in this folder are at version 1.0 (F-07 carries a 1.1 cross-reference note only). Later revisions are recorded in this table and in the repository git history.
+F-01 is at version 1.2; all other contracts in this folder are at version 1.0 (F-07 carries a 1.1 cross-reference note only). Later revisions are recorded in this table and in the repository git history.

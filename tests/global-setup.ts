@@ -16,7 +16,8 @@ export default function setup(): void {
     const e = error as { stdout?: Buffer; stderr?: Buffer };
     throw new Error(
       `Could not prepare the test database (${new URL(testUrl).pathname.slice(1)}). Is Postgres running (docker compose up -d)?\n` +
-        `${e.stdout?.toString() ?? ''}${e.stderr?.toString() ?? ''}`
+        `${e.stdout?.toString() ?? ''}${e.stderr?.toString() ?? ''}`,
+      { cause: error }
     );
   }
 }

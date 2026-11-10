@@ -1,6 +1,6 @@
 # F-01 Authentication and Authorization Foundation: Engineering Contract
 
-Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
+Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.2 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -70,7 +70,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ### 2.3 Data
 
-- Tables `users` and `sessions` as defined in System-Level SDS. Migration `0001_users_sessions`.
+- Tables `users` and `sessions` as defined in System-Level SDS. Migration `20261107163413_init_users_sessions` (Prisma timestamp naming).
 - Seed data: `admin@example.test` (`ADMIN`), `alice@example.test` (`USER`), `bob@example.test` (`USER`). Passwords hashed with bcrypt cost 12 from `SEED_DEFAULT_PASSWORD`. No plaintext passwords in repository.
 
 ---
@@ -119,7 +119,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ## 5. Definition of done (F-01)
 
-- Every AC above has at least one automated test executed on the release commit with results documented.
-- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12.
+- Every AC above **except AC-01.9** has at least one automated test executed on the release commit, with results documented in [evidence/f-01/](evidence/f-01/) (`npm-test.txt`, `e2e.txt`, `coverage.txt`, `lint.txt`). AC-01.9 is verified by TEST-07.4 in F-07 (v1.1), so **F-01 is Done only once TEST-07.4 passes**.
+- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12. **Disclosure (v1.2):** the original F-01 commit added tests and implementation together, so no red-to-green commit history exists. In its place, [evidence/f-01/](evidence/f-01/) records retroactive mutation checks (`failing-first-TEST-01.x.txt`): the behavior is removed, the named test is shown failing, the code is restored, and the test passes again. Later features record genuine failing-test commits.
 - Product Definition of Done in [README.md](README.md) is met.
 

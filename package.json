@@ -13,19 +13,27 @@
     "build": "npm run build --workspaces",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
     "test:api": "vitest run tests/api",
     "test:e2e": "playwright test",
+    "lint": "eslint . --max-warnings=0",
+    "evidence:f-01": "node scripts/evidence-f01.mjs",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.49.0",
     "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.72.2",
     "vitest": "^2.1.4"
   },
   "prisma": {
