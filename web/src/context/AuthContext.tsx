@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User } from '../types/auth.types';
 import { fetchCurrentUser, loginUser, logoutUser } from '../api/auth.api';
 
@@ -14,10 +15,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const loadUser = async () => {
+  // Stable identity so screens can call it from effects without re-running them each render.
+  const loadUser = useCallback(async () => {
     try {
       const currentUser = await fetchCurrentUser();
       setUser(currentUser);
@@ -26,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Initial session check. State is set only in the promise callbacks, and skipped
   // if the provider unmounts first.
@@ -47,8 +50,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Cached server data belongs to one session: drop it whenever the user changes, so a
+  // previous user's balances can never render for the next one (BR-01).
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginUser(email, password);
+    queryClient.clear();
     setUser(loggedInUser);
   };
 
@@ -56,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await logoutUser();
     } finally {
+      queryClient.clear();
       setUser(null);
     }
   };

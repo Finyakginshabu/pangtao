@@ -233,15 +233,15 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
     expect(() => assertRoutesGuarded(unmountedApp)).toThrow('[NFR-02 Violation]');
   });
 
-  // Sprint 1 placeholder (contract f-01 v1.1): /api/v1/test/* fixture routes stand in for the
-  // User-only (/accounts, F-03) and Admin-only (/admin/users, F-02) endpoints until those exist.
+  // Contract f-01 v1.1: re-pointed from the /api/v1/test/* placeholders to the real User-only
+  // (/accounts, F-03) and Admin-only (/admin/users, F-02) endpoints now that both exist.
   it('TEST-01.8 (AC-01.8): Role separation denies non-permitted roles with 403 FORBIDDEN', async () => {
     const userToken = await createTestSession(seededUsers.alice.id);
     const adminToken = await createTestSession(seededUsers.admin.id);
 
     // User calling ADMIN-only route -> 403
     const resUserToAdmin = await request(app)
-      .get('/api/v1/test/admin-only')
+      .get('/api/v1/admin/users')
       .set('Cookie', [`sid=${userToken}`]);
     expect(resUserToAdmin.status).toBe(403);
     expect(resUserToAdmin.body).toEqual({
@@ -250,20 +250,20 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
 
     // Admin calling USER-only route -> 403
     const resAdminToUser = await request(app)
-      .get('/api/v1/test/user-only')
+      .get('/api/v1/accounts')
       .set('Cookie', [`sid=${adminToken}`]);
     expect(resAdminToUser.status).toBe(403);
     expect(resAdminToUser.body.error.code).toBe('FORBIDDEN');
 
     // User calling USER-only route -> 200
     const resUserOk = await request(app)
-      .get('/api/v1/test/user-only')
+      .get('/api/v1/accounts')
       .set('Cookie', [`sid=${userToken}`]);
     expect(resUserOk.status).toBe(200);
 
     // Admin calling ADMIN-only route -> 200
     const resAdminOk = await request(app)
-      .get('/api/v1/test/admin-only')
+      .get('/api/v1/admin/users')
       .set('Cookie', [`sid=${adminToken}`]);
     expect(resAdminOk.status).toBe(200);
   });

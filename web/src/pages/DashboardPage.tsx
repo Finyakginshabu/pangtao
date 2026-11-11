@@ -1,66 +1,205 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
+import { ErrorBanner } from '../components/ErrorBanner';
+import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
+import { errorCode, errorMessage } from '../api/http';
+import { Account, AccountType } from '../types/account.types';
+import { formatSatang } from '../utils/money';
+import { colors, font, radius, shadow, space } from '../styles/theme';
+
+/** f-03 §2.2: the dashboard shows these three groups; Income and Expense totals belong to the F-08 summary. */
+const SECTIONS: ReadonlyArray<{ key: string; type: AccountType; title: string; caption: string; empty: string }> = [
+  {
+    key: 'cash',
+    type: 'CASH',
+    title: 'Cash',
+    caption: 'Wallets and bank accounts',
+    empty: 'No cash accounts yet.',
+  },
+  {
+    key: 'debts',
+    type: 'LOAN_TAKEN',
+    title: 'Debts',
+    caption: 'Credit cards and money borrowed',
+    empty: 'No debts. Nothing is owed on a card or loan.',
+  },
+  {
+    key: 'owed',
+    type: 'LOAN_GIVEN',
+    title: 'Owed to Me',
+    caption: 'Personal loans given out',
+    empty: 'No loans given. Money you lend to someone will appear here.',
+  },
+];
+
+const SUBTYPE_LABEL: Record<string, string> = {
+  WALLET: 'Wallet',
+  BANK: 'Bank',
+  CREDIT_CARD: 'Credit card',
+  OTHER: 'Other',
+};
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: colors.surfaceSolid,
+  border: `1px solid ${colors.border}`,
+  borderRadius: radius.xl,
+  boxShadow: shadow.card,
+  padding: space[5],
+  display: 'flex',
+  flexDirection: 'column',
+  gap: space[3],
+  minWidth: 0,
+};
+
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  // min() keeps a single column inside a 360 px viewport.
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
+  gap: space[6],
+};
+
+const skeletonBar: React.CSSProperties = {
+  display: 'block',
+  height: '0.85rem',
+  borderRadius: radius.full,
+  backgroundColor: '#E8E2D6',
+};
+
+const NegativeLabel: React.FC = () => (
+  <span
+    style={{
+      fontSize: font.size.xs,
+      fontWeight: font.weight.semibold,
+      color: '#8B2525',
+      backgroundColor: '#FBEAEA',
+      borderRadius: radius.full,
+      padding: '0.1rem 0.5rem',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    Negative balance
+  </span>
+);
+
+const Amount: React.FC<{ satang: number; size: string; testId?: string }> = ({ satang, size, testId }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: space[2], flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+    <span
+      data-testid={testId}
+      style={{ fontSize: size, fontWeight: font.weight.bold, color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}
+    >
+      {formatSatang(satang)}
+    </span>
+    {satang < 0 && <NegativeLabel />}
+  </span>
+);
+
+const SectionCard: React.FC<{ section: (typeof SECTIONS)[number]; accounts: Account[] }> = ({ section, accounts }) => {
+  const total = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const headingId = `dashboard-section-${section.key}-title`;
+
+  return (
+    <section data-testid={`dashboard-section-${section.key}`} aria-labelledby={headingId} style={cardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[3], flexWrap: 'wrap' }}>
+        <div>
+          <h3 id={headingId} style={{ fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.textPrimary, margin: 0 }}>
+            {section.title}
+          </h3>
+          <p style={{ fontSize: font.size.xs, color: colors.textMuted, margin: 0 }}>{section.caption}</p>
+        </div>
+        {accounts.length > 0 && (
+          <Amount satang={total} size={font.size.xl} testId={`dashboard-section-${section.key}-total`} />
+        )}
+      </div>
+
+      {accounts.length === 0 ? (
+        <p data-testid={`dashboard-section-${section.key}-empty`} style={{ fontSize: font.size.sm, color: colors.textMuted, margin: 0 }}>
+          {section.empty}
+        </p>
+      ) : (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {accounts.map((account, index) => (
+            <li
+              key={account.id}
+              data-testid={`account-row-${account.name}`}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: space[3],
+                flexWrap: 'wrap',
+                padding: `${space[3]} 0`,
+                borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
+              }}
+            >
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: font.size.sm, fontWeight: font.weight.medium, color: colors.textPrimary }}>
+                  {account.name}
+                </span>
+                {account.subtype && (
+                  <span style={{ fontSize: font.size.xs, color: colors.textMuted }}>{SUBTYPE_LABEL[account.subtype]}</span>
+                )}
+              </span>
+              <Amount satang={account.balance} size={font.size.base} testId={`account-balance-${account.name}`} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};
+
+const DashboardSkeleton: React.FC = () => (
+  <div data-testid="dashboard-skeleton" role="status" aria-live="polite" aria-label="Loading balances" style={gridStyle}>
+    {SECTIONS.map((section) => (
+      <div key={section.key} style={cardStyle}>
+        <span style={{ ...skeletonBar, width: '40%', height: '1.1rem' }} />
+        <span style={{ ...skeletonBar, width: '75%' }} />
+        <span style={{ ...skeletonBar, width: '60%' }} />
+      </div>
+    ))}
+  </div>
+);
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
+  const accountsQuery = useQuery({ queryKey: accountsQueryKey, queryFn: fetchAccounts });
+
+  // An expired session re-checks the user, and the route guard then sends them to /login.
+  const unauthenticated = errorCode(accountsQuery.error) === 'UNAUTHENTICATED';
+  useEffect(() => {
+    if (unauthenticated) void refetchUser();
+  }, [unauthenticated, refetchUser]);
 
   return (
     <AppShell>
       <div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
+        <h2 style={{ fontSize: font.size['2xl'], fontWeight: font.weight.semibold, color: colors.textPrimary, marginBottom: space[2] }}>
           Welcome back, {user?.displayName}
         </h2>
-        <p style={{ color: '#64748b', marginBottom: '2rem' }}>
-          Overview of your financial accounts and balances.
-        </p>
+        <p style={{ color: colors.textMuted, marginBottom: space[8] }}>Overview of your financial accounts and balances.</p>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '1.5rem',
-          }}
-        >
-          <div
-            style={{
-              padding: '1.5rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '0.5rem',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}
-          >
-            <h3 style={{ fontSize: '1rem', color: '#64748b', margin: '0 0 0.5rem' }}>Cash & Bank</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>0.00 ฿</p>
-          </div>
+        {accountsQuery.isError && (
+          <ErrorBanner
+            message={errorMessage(accountsQuery.error, 'Unable to load your balances. Please try again.')}
+            onRetry={() => void accountsQuery.refetch()}
+          />
+        )}
 
-          <div
-            style={{
-              padding: '1.5rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '0.5rem',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}
-          >
-            <h3 style={{ fontSize: '1rem', color: '#64748b', margin: '0 0 0.5rem' }}>Debts (Credit Cards)</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>0.00 ฿</p>
+        {accountsQuery.isPending || (accountsQuery.isError && accountsQuery.isFetching) ? (
+          <DashboardSkeleton />
+        ) : accountsQuery.isSuccess ? (
+          <div style={gridStyle}>
+            {SECTIONS.map((section) => (
+              <SectionCard
+                key={section.key}
+                section={section}
+                accounts={accountsQuery.data.filter((account) => account.type === section.type)}
+              />
+            ))}
           </div>
-
-          <div
-            style={{
-              padding: '1.5rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '0.5rem',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}
-          >
-            <h3 style={{ fontSize: '1rem', color: '#64748b', margin: '0 0 0.5rem' }}>Owed to Me (Loans)</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>0.00 ฿</p>
-          </div>
-        </div>
+        ) : null}
       </div>
     </AppShell>
   );

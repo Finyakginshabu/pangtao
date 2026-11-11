@@ -8,6 +8,7 @@ import { errorHandler, AppError } from './middleware/error.middleware.js';
 import { access, assertRoutesGuarded, mountRouter } from './middleware/route-guard.middleware.js';
 import { authRouter } from './routes/auth.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { accountsRouter } from './routes/accounts.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { testRouter } from './routes/test.routes.js';
 
@@ -53,6 +54,7 @@ export function createApp(options: AppOptions = {}) {
   mountRouter(app, '/api/v1', healthRouter);
   mountRouter(app, '/api/v1/auth', authRouter);
   mountRouter(app, '/api/v1/admin', adminRouter);
+  mountRouter(app, '/api/v1/accounts', accountsRouter);
   if (enableTestRoutes) {
     mountRouter(app, '/api/v1/test', testRouter);
   }

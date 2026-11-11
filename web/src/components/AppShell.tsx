@@ -36,7 +36,26 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             alt="Pangtao Logo"
             style={{ width: '24px', height: '24px', display: 'block', objectFit: 'contain' }}
           />
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: colors.brass }}>Pangtao</h1>
+          <h1 style={{ margin: 0, lineHeight: 0 }}>
+            {/* The wordmark is filled with currentColor, which an <img> cannot inherit, so the SVG
+                is used as a mask over the brand colour (179 × 46 viewBox → 86 × 22 px). */}
+            <span
+              role="img"
+              aria-label="Pangtao"
+              style={{
+                display: 'block',
+                width: '86px',
+                height: '22px',
+                backgroundColor: colors.brass,
+                WebkitMaskImage: 'url(/logo/pangtao-wordmark.svg)',
+                maskImage: 'url(/logo/pangtao-wordmark.svg)',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+              }}
+            />
+          </h1>
           <span className="pt-app-header-subtitle" style={{ fontSize: '0.875rem', color: colors.parchment, opacity: 0.8 }}>Personal Ledger</span>
         </div>
 

@@ -1,26 +1,5 @@
-import { ApiErrorResponse } from '../types/auth.types';
+import { handleResponse } from './http';
 import { AdminUser, AdminUserResponse, AdminUsersResponse } from '../types/admin.types';
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let errorData: ApiErrorResponse;
-    try {
-      errorData = await res.json();
-    } catch {
-      errorData = {
-        error: {
-          code: 'NETWORK_ERROR',
-          message: 'An unexpected network error occurred.',
-        },
-      };
-    }
-    throw errorData;
-  }
-  if (res.status === 204) {
-    return {} as T;
-  }
-  return res.json();
-}
 
 export async function fetchUsers(limit = 50, offset = 0): Promise<AdminUsersResponse> {
   const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
