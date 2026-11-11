@@ -7,6 +7,7 @@ import { sessionMiddleware } from './middleware/auth.middleware.js';
 import { errorHandler, AppError } from './middleware/error.middleware.js';
 import { access, assertRoutesGuarded, mountRouter } from './middleware/route-guard.middleware.js';
 import { authRouter } from './routes/auth.routes.js';
+import { adminRouter } from './routes/admin.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { testRouter } from './routes/test.routes.js';
 
@@ -51,6 +52,7 @@ export function createApp(options: AppOptions = {}) {
   // API routers: every route declares access(...) as its first handler (NFR-02).
   mountRouter(app, '/api/v1', healthRouter);
   mountRouter(app, '/api/v1/auth', authRouter);
+  mountRouter(app, '/api/v1/admin', adminRouter);
   if (enableTestRoutes) {
     mountRouter(app, '/api/v1/test', testRouter);
   }

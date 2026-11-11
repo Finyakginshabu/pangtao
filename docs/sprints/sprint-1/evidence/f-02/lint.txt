@@ -1,0 +1,9 @@
+# F-02 evidence: ESLint, zero warnings allowed (DoD §4)
+# Command : npx eslint . --max-warnings=0
+# Commit  : cabb8c83bb29974d941a29d4431d43cbea4d8406 (feat(F-02): implement admin user management)
+# Tree    : clean
+# Date    : 2026-11-11 11:06:31 (Asia/Bangkok)
+# Node    : v25.5.0
+# Result  : exit code 0
+# No output below means no errors and no warnings.
+

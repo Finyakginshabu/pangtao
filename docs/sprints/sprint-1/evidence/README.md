@@ -24,4 +24,23 @@ The script refuses to run when code files have uncommitted changes, strips termi
 
 **Disclosure.** The original F-01 commit added tests and implementation together, so F-01 has no red-to-green commit history. The `failing-first-*` files are **retroactive mutation checks** recorded afterwards, labelled as such in each file. They show that each test detects the behavior it covers. Features from F-02 onward record genuine failing-test commits before implementation.
 
+## F-02 Admin User Management ([contract](../f-02-admin-users.md) §5)
+
+Regenerate on the committed F-02 state (Postgres must be running):
+
+```powershell
+npm run evidence:f-02
+```
+
+| File | Shows | DoD item |
+|---|---|---|
+| [f-02/lint.txt](f-02/lint.txt) | `eslint . --max-warnings=0` exits 0 | §4 clean linting |
+| [f-02/npm-test.txt](f-02/npm-test.txt) | Unit + API test run (verbose): every test name, pass/fail/skip counts | §3 automated verification |
+| [f-02/coverage.txt](f-02/coverage.txt) | Line coverage per file, including `admin.service.ts` | §4 coverage ≥ 80% (NFR-09) |
+| [f-02/e2e.txt](f-02/e2e.txt) | Playwright journeys TEST-02.8 and TEST-01.14 regression | §3 E2E for AC-02.8 |
+| [f-02/failing-first-TEST-02.4.txt](f-02/failing-first-TEST-02.4.txt) | Mutation check: session revocation removed → TEST-02.4 fails; restored → passes | §5 failing-first (AC-02.4) |
+| [f-02/failing-first-TEST-02.6.txt](f-02/failing-first-TEST-02.6.txt) | Mutation check: self-disable guard removed → TEST-02.6 fails; restored → passes | §5 failing-first (AC-02.6) |
+
+Each failing-first file also records the commit that added the API tests. When that commit predates the implementation, it is the genuine red-to-green evidence; the mutation check then proves the test still detects the behavior on the final commit.
+
 **Not in this folder.** AC-01.9 is verified by TEST-07.4 in F-07 (contract v1.1). CI runs arrive with F-19 (Lab 5).
