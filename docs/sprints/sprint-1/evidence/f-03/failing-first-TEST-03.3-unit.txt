@@ -1,0 +1,77 @@
+# F-03 evidence: failing-first check for TEST-03.3 (U, pure engine)
+# Command : npx vitest run tests/unit/balance.engine.test.ts -t "TEST-03.3" --reporter=verbose
+# Commit  : f2a9cb3ea5a26de075be927e7ddd267e5dfcb380 (feat(F-03): implement accounts and balances)
+# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md
+# Date    : 2026-11-11 23:17:50 (Asia/Bangkok)
+# Node    : v24.19.0
+# Red commit: b30ef60ddf0c22ae545f6079687bf4d1d9c92685 (tests committed before implementation: genuine red-to-green commit)
+# DISCLOSURE: this is a mutation check run on the committed green state. It removes the
+# behavior, shows the named test failing, restores the file byte-for-byte (verified against
+# git), and shows the same test passing again. The red commit above is the genuine
+# red-to-green evidence; this file proves the test still detects the behavior on the final commit.
+# Mutation: voided transactions counted by the pure engine (AC-03.3, BR-07/BR-12)
+
+## 1. Mutation applied (temporary, never committed)
+
+diff --git a/server/src/services/balance.engine.ts b/server/src/services/balance.engine.ts
+index 1123f2f..c9b6354 100644
+--- a/server/src/services/balance.engine.ts
++++ b/server/src/services/balance.engine.ts
+@@ -49,7 +49,7 @@ export function computeBalances(
+   };
+ 
+   for (const txn of transactions) {
+-    if (txn.voidedAt !== null) continue;
++    // Mutation: voided transactions no longer skipped.
+ 
+     const sourceType = typeOf.get(txn.accountId);
+     if (sourceType !== undefined) add(txn.accountId, sourceEffect(sourceType, txn.kind, txn.totalAmount));
+
+## 2. With the mutation: exit code 1 (expected: failure)
+
+
+ RUN  v2.1.9 <repo>
+
+ × tests/unit/balance.engine.test.ts > F-03 Accounts and Balances (STS) > TEST-03.3 (AC-03.3): engine derives Bank, Card, Salary, Dining and Groceries balances and ignores the voided payment
+   → expected 7420000n to be 7920000n // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  23:19:08
+   Duration  1.51s (transform 49ms, setup 11ms, collect 56ms, tests 5ms, environment 0ms, prepare 58ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/balance.engine.test.ts > F-03 Accounts and Balances (STS) > TEST-03.3 (AC-03.3): engine derives Bank, Card, Salary, Dining and Groceries balances and ignores the voided payment
+AssertionError: expected 7420000n to be 7920000n // Object.is equality
+
+- Expected
++ Received
+
+- 7920000n
++ 7420000n
+
+ ❯ tests/unit/balance.engine.test.ts:66:34
+     64|     const balances = computeBalances(ACCOUNTS, DEMO_LEDGER);
+     65| 
+     66|     expect(balances.get('bank')).toBe(7_920_000n); // 79,200.00 THB
+       |                                  ^
+     67|     expect(balances.get('card')).toBe(40_000n); // 400.00 THB debt
+     68|     expect(balances.get('salary')).toBe(3_000_000n); // 30,000.00 THB
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+## 3. After restoring server/src/services/balance.engine.ts: exit code 0 (expected: pass)
+
+
+ RUN  v2.1.9 <repo>
+
+ ✓ tests/unit/balance.engine.test.ts > F-03 Accounts and Balances (STS) > TEST-03.3 (AC-03.3): engine derives Bank, Card, Salary, Dining and Groceries balances and ignores the voided payment
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 6 skipped (7)
+   Start at  23:19:11
+   Duration  1.48s (transform 50ms, setup 11ms, collect 53ms, tests 1ms, environment 0ms, prepare 58ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

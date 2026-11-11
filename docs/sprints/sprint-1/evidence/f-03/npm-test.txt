@@ -1,0 +1,73 @@
+# F-03 evidence: Unit + API tests (Vitest, verbose)
+# Command : npx vitest run --reporter=verbose
+# Commit  : f2a9cb3ea5a26de075be927e7ddd267e5dfcb380 (feat(F-03): implement accounts and balances)
+# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md
+# Date    : 2026-11-11 23:17:50 (Asia/Bangkok)
+# Node    : v24.19.0
+# Result  : exit code 0
+
+
+ RUN  v2.1.9 <repo>
+
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > Health Check: GET /api/v1/health returns status ok
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.1 (AC-01.1): Successful login returns user profile, sets sid cookie, and creates session row 414ms
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.2 (AC-01.2): Unknown email, wrong password, and disabled user return identical 401 response without cookie 765ms
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.3 (AC-01.3): Malformed inputs return 400 VALIDATION_ERROR naming the failed field
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > Contract §2.1: a malformed JSON body returns 400 VALIDATION_ERROR without parser details
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.4 (AC-01.4): GET /auth/me returns identity with valid cookie; 401 without cookie or with forged cookie
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.5 (AC-01.5): POST /auth/logout returns 204, clears the cookie with Max-Age=0, deletes the session, and invalidates the old cookie
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.6 (AC-01.6): Expired session token is rejected with 401 and deleted from database
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.7 (AC-01.7): Every registered protected route returns 401 to anonymous requests; an undeclared route halts app creation
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.8 (AC-01.8): Role separation denies non-permitted roles with 403 FORBIDDEN
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.10 (AC-01.10): Passwords in database are valid bcrypt hashes with cost >= 12; no plaintext in storage
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.11 (AC-01.11): A forced internal exception returns a sanitized 500 INTERNAL_ERROR with X-Request-Id and no stack trace, SQL, or file paths
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED 2442ms
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.13 (AC-01.13): Missing or mismatched Origin returns 403; non-JSON or missing Content-Type on a body returns 415; nothing changes
+ ✓ tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > authService.getMe: returns user profile or throws 404 for non-existent user
+ ✓ tests/api/auth.api.test.ts > Deployment configuration (system-sds §1, §8) > Test-only fixture routes are not mounted outside NODE_ENV=test
+ ✓ tests/api/auth.api.test.ts > Deployment configuration (system-sds §1, §8) > Serves the built web app with an index.html fallback while unknown /api paths stay JSON 404
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.1 (AC-02.1): Admin lists all users with profile-only fields, ordered by display name
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > Contract §2.1: limit defaults to 50, is capped at 100, and rejects invalid pagination
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.2 (AC-02.2): User callers receive 403 and anonymous callers 401 on every admin endpoint
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.3 (AC-02.3): Disabling a user returns 200 and blocks subsequent login with 401 INVALID_CREDENTIALS 396ms
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.4 (AC-02.4): Disabling a user purges all of their sessions in the same transaction; old cookies get 401
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.5 (AC-02.5): Re-enabling a disabled user restores login and session establishment 396ms
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.6 (AC-02.6): An Administrator cannot disable their own account (409 CANNOT_DISABLE_SELF)
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.7 (AC-02.7): Missing users are 404; malformed UUIDs and invalid payloads are 400 VALIDATION_ERROR
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > Contract §2.1: a non-JSON Content-Type on PATCH returns 415 UNSUPPORTED_MEDIA_TYPE
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.9 (AC-02.9): Disabling twice and re-enabling an active user are idempotent
+ ✓ tests/api/accounts.api.test.ts > F-03 Accounts and Balances (STS) > TEST-03.1 (AC-03.1): a seeded user gets exactly their nine accounts in type-then-name order, all at 0 with no opening balance
+ ✓ tests/api/accounts.api.test.ts > F-03 Accounts and Balances (STS) > TEST-03.2 (AC-03.2): anonymous gets 401 UNAUTHENTICATED and Admin gets 403 FORBIDDEN with no account data
+ ✓ tests/api/accounts.api.test.ts > F-03 Accounts and Balances (STS) > TEST-03.3 (AC-03.3): balances reflect opening, salary, card charge and repayment, and ignore the voided payment
+ ✓ tests/api/accounts.api.test.ts > F-03 Accounts and Balances (STS) > TEST-03.4 (AC-03.4): net worth from the API equals openings + income − expenses to the satang
+ ✓ tests/api/accounts.api.test.ts > F-03 Accounts and Balances (STS) > TEST-03.5 (AC-03.5): the SQL aggregation behind the API and the pure engine agree on every account 708ms
+ ✓ tests/unit/balance.engine.test.ts > F-03 Accounts and Balances (STS) > TEST-03.3 (AC-03.3): engine derives Bank, Card, Salary, Dining and Groceries balances and ignores the voided payment
+ ✓ tests/unit/balance.engine.test.ts > F-03 Accounts and Balances (STS) > TEST-03.4 (AC-03.4): net worth 78,800.00 equals openings + income − expenses with zero satang discrepancy
+ ✓ tests/unit/balance.engine.test.ts > F-03 balance engine: further rules > returns 0 for every account of an empty ledger
+ ✓ tests/unit/balance.engine.test.ts > F-03 balance engine: further rules > D-02: an overdrawn Cash account and an overpaid card go negative instead of being clamped
+ ✓ tests/unit/balance.engine.test.ts > F-03 balance engine: further rules > applies every allocation kind in the srs §4 matrix, including the Sprint 2 kinds
+ ✓ tests/unit/balance.engine.test.ts > F-03 balance engine: further rules > a voided opening balance is excluded
+ ✓ tests/unit/balance.engine.test.ts > F-03 balance engine: further rules > AC-03.4 invariant holds for 200 random ledgers mixing every allocation kind, openings and voids
+ ✓ tests/unit/auth.service.test.ts > Auth Utility & Pure Service Unit Tests (U) > hashes passwords using bcrypt with salt rounds >= 12 556ms
+ ✓ tests/unit/auth.service.test.ts > Auth Utility & Pure Service Unit Tests (U) > generates 32-byte cryptographically secure session tokens in hex
+ ✓ tests/unit/auth.service.test.ts > Auth Utility & Pure Service Unit Tests (U) > computes deterministic SHA-256 hashes of session tokens
+
+ Test Files  5 passed (5)
+      Tests  42 passed (42)
+   Start at  23:17:54
+   Duration  14.17s (transform 141ms, setup 36ms, collect 1.09s, tests 10.96s, environment 0ms, prepare 274ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+stderr | tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.11 (AC-01.11): A forced internal exception returns a sanitized 500 INTERNAL_ERROR with X-Request-Id and no stack trace, SQL, or file paths
+[INTERNAL_ERROR] [8a4a559a-5c18-40dc-9c43-6dc61af60056] Error: Invalid `prisma.session.findUnique()` invocation in C:\srv\pangtao\server\src\middleware\auth.middleware.ts:17:44 -> SELECT "public"."sessions"."token_hash" FROM "public"."sessions" WHERE "token_hash" = $1: relation "sessions" does not exist
+    at <repo>\server\src\routes\test.routes.ts:26:11
+    at Layer.handle [as handle_request] (<repo>\node_modules\express\lib\router\layer.js:95:5)
+    at next (<repo>\node_modules\express\lib\router\route.js:149:13)
+    at allowAnyone (<repo>\server\src\middleware\route-guard.middleware.ts:29:92)
+    at tagged (<repo>\server\src\middleware\route-guard.middleware.ts:41:53)
+    at Layer.handle [as handle_request] (<repo>\node_modules\express\lib\router\layer.js:95:5)
+    at next (<repo>\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (<repo>\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (<repo>\node_modules\express\lib\router\layer.js:95:5)
+    at <repo>\node_modules\express\lib\router\index.js:284:15
+
