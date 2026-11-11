@@ -1,0 +1,84 @@
+# F-02 evidence: failing-first check for TEST-02.4
+# Command : npx vitest run tests/api/admin.api.test.ts -t "TEST-02.4" --reporter=verbose
+# Commit  : cabb8c83bb29974d941a29d4431d43cbea4d8406 (feat(F-02): implement admin user management)
+# Tree    : clean
+# Date    : 2026-11-11 11:06:31 (Asia/Bangkok)
+# Node    : v25.5.0
+# Red commit: 75bc102f177cc24ebbf5d2d5594fd292c015b1d0 (tests committed before implementation: genuine red-to-green commit)
+# DISCLOSURE: this is a mutation check run on the committed green state. It removes the
+# behavior, shows the named test failing, restores the file byte-for-byte (verified against
+# git), and shows the same test passing again. When the test commit predates the
+# implementation, that commit is the genuine red-to-green evidence; this file proves the
+# test still detects the behavior on the final commit.
+# Mutation: session revocation removed from the disable transaction (AC-02.4)
+
+## 1. Mutation applied (temporary, never committed)
+
+diff --git a/server/src/services/admin.service.ts b/server/src/services/admin.service.ts
+index 8e3cbf5..87e7a87 100644
+--- a/server/src/services/admin.service.ts
++++ b/server/src/services/admin.service.ts
+@@ -73,9 +73,7 @@ export class AdminService {
+       });
+ 
+       // BR-13: purge all sessions of the disabled user within the same transaction.
+-      if (!isActive) {
+-        await tx.session.deleteMany({ where: { userId: targetUserId } });
+-      }
++      // Mutation: session revocation removed for the failing-first check.
+ 
+       return user;
+     });
+
+## 2. TEST-02.4 with the behavior removed: exit code 1 (expected: failure)
+
+
+ RUN  v2.1.9 <repo>
+
+ × tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.4 (AC-02.4): Disabling a user purges all of their sessions in the same transaction; old cookies get 401 361ms
+   → expected 1 to be +0 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  11:08:15
+   Duration  2.65s (transform 155ms, setup 21ms, collect 557ms, tests 377ms, environment 0ms, prepare 83ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+(node:30596) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.4 (AC-02.4): Disabling a user purges all of their sessions in the same transaction; old cookies get 401
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/api/admin.api.test.ts:124:85
+    122|     expect(res.status).toBe(200);
+    123| 
+    124|     expect(await prisma.session.count({ where: { userId: seededUsers.a…
+       |                                                                                     ^
+    125| 
+    126|     const me = await request(app).get('/api/v1/auth/me').set('Cookie',…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+## 3. TEST-02.4 after restoring server/src/services/admin.service.ts: exit code 0 (expected: pass)
+
+
+ RUN  v2.1.9 <repo>
+
+ ✓ tests/api/admin.api.test.ts > F-02 Admin User Management (STS) > TEST-02.4 (AC-02.4): Disabling a user purges all of their sessions in the same transaction; old cookies get 401 359ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 9 skipped (10)
+   Start at  11:08:19
+   Duration  2.59s (transform 141ms, setup 20ms, collect 543ms, tests 366ms, environment 0ms, prepare 109ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+(node:30000) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
