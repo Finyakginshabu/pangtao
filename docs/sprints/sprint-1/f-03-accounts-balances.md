@@ -1,6 +1,6 @@
 # F-03 Accounts and Balances: Engineering Contract
 
-Requirements: FR-08; BR-01, BR-07; NFR-03 · Depends on: F-01 · Contract version: 1.0 · Suggested branch: `feature/F-03-accounts-balances`
+Requirements: FR-08; BR-01, BR-07; NFR-03 · Depends on: F-01 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-03-accounts-balances`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -63,7 +63,9 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ### 2.3 Data
 
-- Table `accounts` as defined in System-Level SDS. Migration `0002_accounts`.
+- Tables `accounts`, `transactions` and `allocation_lines` exactly as defined in System-Level SDS §2, created together by migration `20261111213027_accounts_ledger` (v1.1: the balance engine reads all three, so F-03 owns the full ledger schema; F-04 to F-08 add no migrations).
+- Hand-written constraints in that migration: `accounts_subtype_valid` (subtype is null, or `WALLET`/`BANK` for Cash, or `CREDIT_CARD`/`OTHER` for Loan Taken); `transactions_total_amount_range` (`0 < total_amount ≤ 10000000000`, or `0` for an opening balance); `allocation_lines_amount_range` (`0 < amount ≤ 10000000000`); partial unique index `unique_active_opening_balance` (one non-voided opening balance per account).
+- Ownership in the database: composite foreign keys `transactions (user_id, account_id)`, `allocation_lines (user_id, target_account_id)` and `allocation_lines (user_id, transaction_id)`, so no row can reference another user's account or transaction.
 - Seed data for Alice and Bob:
   - Cash: Wallet (`WALLET`), Bank Account (`BANK`).
   - Loan Taken: Credit Card (`CREDIT_CARD`).
@@ -79,7 +81,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-03.1 | Querying `GET /api/v1/accounts` for a newly seeded user returns exactly their nine accounts in specified order, with `balance = 0` and `openingBalance = null`, and zero accounts belonging to other users. |
 | AC-03.2 | An anonymous caller receives 401 UNAUTHENTICATED and an Administrator receives 403 FORBIDDEN, with no account data returned. |
 | AC-03.3 | The balance engine accurately calculates balances for opening balance, salary receipt, credit card purchase, and card repayment, while strictly ignoring voided transactions. |
-| AC-03.4 | Invariant holds to the exact satang: across any combination of transactions, total net worth ($\text{Cash} + \text{Loan Given} - \text{Debt}$) equals total opening balances plus total income minus total expenses (NFR-03). |
+| AC-03.4 | Invariant holds to the exact satang: across any combination of transactions, total net worth ($\text{Cash} + \text{Loan Given} - \text{Debt}$) equals total signed opening balances (Cash and Loan Given openings added, Loan Taken openings subtracted) plus total income minus total expenses (NFR-03). |
 | AC-03.5 | An in-memory pure calculation function and a production SQL aggregation query produce identical balance figures for the same ledger dataset. |
 | AC-03.6 | In the browser, the Dashboard renders grouped accounts with formatted THB figures, negative balance alerts when applicable, loading skeletons, and error retry states. |
 
