@@ -282,3 +282,101 @@ body {
   font-size: 0.875rem;
 }
 
+/* ── 4h. Admin users table (F-02) ───────────────────────────────────── */
+.pt-admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.pt-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pt-status-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+}
+
+.pt-status-badge--active {
+  background-color: #E7F4EE;
+  border-color: #9CCDB6;
+  color: #1F5C42;
+}
+
+.pt-status-badge--disabled {
+  background-color: #FBEAEA;
+  border-color: #E5A8A8;
+  color: #8B2525;
+}
+
+/* At 360 px the table becomes a stack of labelled rows instead of a
+   horizontally scrolling grid, so every action stays reachable. */
+@media (max-width: 640px) {
+  .pt-admin-table thead {
+    display: none;
+  }
+
+  .pt-admin-table,
+  .pt-admin-table tbody,
+  .pt-admin-table tr,
+  .pt-admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .pt-admin-table tr {
+    border-bottom: 1px solid var(--color-parchment);
+    padding: 0.5rem 0;
+  }
+
+  .pt-admin-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .pt-admin-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 1rem !important;
+    border-bottom: none !important;
+  }
+
+  .pt-admin-table td::before {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(46, 74, 103, 0.6);
+  }
+}
+
+/* ── 4i. Responsive app header (NFR-08, 360 px) ─────────────────────── */
+@media (max-width: 480px) {
+  .pt-app-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem !important;
+  }
+
+  .pt-app-brand {
+    gap: 0.5rem !important;
+  }
+
+  .pt-app-header-subtitle {
+    display: none;
+  }
+
+  .pt-app-user {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem !important;
+  }
+}
+
