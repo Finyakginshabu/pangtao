@@ -2,11 +2,16 @@ import { prisma } from '../../server/src/prisma.js';
 import { hashPassword, generateSessionToken, hashSessionToken } from '../../server/src/utils/hash.util.js';
 import { requireEnv } from '../../server/src/env.js';
 import { Role } from '@prisma/client';
+import { seedAccountsFor } from '../../prisma/seed-accounts.js';
 
 // AC-01.10: no plaintext password in test fixtures; reuse the locally configured seed password.
 export const TEST_PASSWORD = requireEnv('SEED_DEFAULT_PASSWORD');
 
 export async function resetDatabase() {
+  // Children first: ledger rows reference accounts with NO ACTION foreign keys.
+  await prisma.allocationLine.deleteMany();
+  await prisma.transaction.deleteMany();
+  await prisma.account.deleteMany();
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();
 
@@ -41,6 +46,10 @@ export async function resetDatabase() {
       isActive: true,
     },
   });
+
+  // F-03: same nine accounts as prisma/seed.ts for each User; none for the Administrator.
+  await seedAccountsFor(prisma, alice.id);
+  await seedAccountsFor(prisma, bob.id);
 
   return { alice, bob, admin };
 }
