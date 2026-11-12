@@ -19,7 +19,7 @@ async function loginAsAlice(page: Page): Promise<void> {
   await expect(page).toHaveURL(/^http:\/\/localhost:3000\/?$/);
 }
 
-async function clearAliceOpeningBalances(): Promise<void> {
+async function aliceUserId(): Promise<string> {
   const alice = await prisma.user.findUnique({
     where: { email: 'alice@example.test' },
     select: { id: true },
@@ -27,7 +27,20 @@ async function clearAliceOpeningBalances(): Promise<void> {
   if (!alice) {
     throw new Error('Seed the development database before running E2E: npm run db:seed');
   }
-  await prisma.transaction.deleteMany({ where: { userId: alice.id, kind: 'OPENING_BALANCE' } });
+  return alice.id;
+}
+
+async function clearAliceOpeningBalances(): Promise<void> {
+  await prisma.transaction.deleteMany({
+    where: { userId: await aliceUserId(), kind: 'OPENING_BALANCE' },
+  });
+}
+
+async function setWalletArchived(isArchived: boolean): Promise<void> {
+  await prisma.account.updateMany({
+    where: { userId: await aliceUserId(), name: 'Wallet' },
+    data: { isArchived },
+  });
 }
 
 function addDays(date: string, days: number): string {
@@ -43,9 +56,11 @@ function addDays(date: string, days: number): string {
 test.describe('F-04 Opening Balance UI (extra E2E, f-04 §2.2)', () => {
   test.beforeEach(async () => {
     await clearAliceOpeningBalances();
+    await setWalletArchived(false);
   });
 
   test.afterAll(async () => {
+    await setWalletArchived(false);
     await clearAliceOpeningBalances();
     await prisma.$disconnect();
   });
@@ -111,5 +126,32 @@ test.describe('F-04 Opening Balance UI (extra E2E, f-04 §2.2)', () => {
       `Opening balance 50,000.00 ฿ on ${formatCalendarDate(today)}`
     );
     await expect(cash.getByTestId('set-opening-balance-Bank Account')).toHaveCount(0);
+  });
+
+  test('TEST-04.10 (AC-04.10): archived accounts are not offered an opening balance', async ({
+    page,
+  }) => {
+    await setWalletArchived(true);
+    await loginAsAlice(page);
+
+    // F-03 still lists the account and its balance; only the action is withheld (BR-14).
+    const cash = page.getByTestId('dashboard-section-cash');
+    await expect(cash.getByTestId('account-row-Wallet')).toBeVisible();
+    await expect(cash.getByTestId('set-opening-balance-Wallet')).toHaveCount(0);
+    await expect(cash.getByTestId('set-opening-balance-Bank Account')).toBeVisible();
+  });
+
+  test('F-01 §2.2: an expired session while saving redirects to /login', async ({ page }) => {
+    await loginAsAlice(page);
+
+    await page.getByTestId('set-opening-balance-Bank Account').click();
+    await page.getByTestId('opening-amount').fill('100.00');
+
+    // Invalidate the session server-side after the dashboard has loaded.
+    await prisma.session.deleteMany({ where: { userId: await aliceUserId() } });
+
+    await page.getByTestId('opening-balance-save').click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByTestId('opening-balance-dialog')).toHaveCount(0);
   });
 });

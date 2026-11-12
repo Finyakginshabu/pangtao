@@ -248,6 +248,19 @@ describe('F-04 Opening Balance (STS)', () => {
     expect(accounts['Loan to Carol'].openingBalance?.amount).toBe(2_000_000);
   });
 
+  it('TEST-04.10 (AC-04.10): an archived account is rejected with 400 VALIDATION_ERROR and saves nothing', async () => {
+    await prisma.account.update({ where: { id: ids['Wallet'] }, data: { isArchived: true } });
+
+    const res = await post(openingUrl(ids['Wallet']))
+      .set('Cookie', [`sid=${aliceToken}`])
+      .send({ amount: 100_000, date: DATE });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await countOpeningBalances(ids['Wallet'])).toBe(0);
+    expect(await prisma.transaction.count({ where: { userId: seededUsers.alice.id } })).toBe(0);
+  });
+
   describe('Contract §2.1: request handling', () => {
     it('rejects a malformed account id with 400 VALIDATION_ERROR and an unknown one with 404', async () => {
       const malformed = await post(openingUrl('abc-123'))
