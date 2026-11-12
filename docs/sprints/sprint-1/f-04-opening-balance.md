@@ -1,6 +1,6 @@
 # F-04 Opening Balance: Engineering Contract
 
-Requirements: FR-10; BR-04, BR-11, BR-14 · Depends on: F-03 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-04-opening-balance`
+Requirements: FR-10; BR-04, BR-10, BR-11, BR-14 · Depends on: F-03 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-04-opening-balance`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 

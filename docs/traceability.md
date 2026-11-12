@@ -38,7 +38,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | BR-03 | F-02 | 1 | AC-02.x · A |
 | BR-04 | F-04, F-05, F-06 | 1 | AC-04.x, 05.x, 06.x · U, A |
 | BR-05 | F-05, F-06 | 1 | AC-05.x, 06.x · U, A |
-| BR-06 | F-05, F-06 (subset); F-10, F-11 (rest) | 1, 2 | AC-05.x, 06.x · U, A; extended in Sprint 2 |
+| BR-06 | F-05, F-06 (subset); F-10, F-11 (rest) | 1, 2 | AC-05.x (incl. AC-05.6, AC-05.13), 06.x · U, A; extended in Sprint 2 |
 | BR-07 | F-03, F-05, F-06 | 1 | AC-03.x, 05.x, 06.x · U, A |
 | BR-08 | F-08 | 1 | AC-08.x · U, A |
 | BR-09 | F-05, F-08 | 1 | AC-05.x, 08.x · A, E |
@@ -46,7 +46,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | BR-11 | F-04, F-12 | 1, 2 | AC-04.x · A; management in Sprint 2 |
 | BR-12 | F-13 | 2 | Contract in Sprint 2 · A |
 | BR-13 | F-02 | 1 | AC-02.x · A |
-| BR-14 | F-04 (archived rule), F-09 (lifecycle) | 1, 2 | AC-04.10 · A, E; lifecycle in Sprint 2 |
+| BR-14 | F-04, F-05, F-06 (archived rule), F-09 (lifecycle) | 1, 2 | AC-04.10 · A, E; AC-05.12 / TEST-05.12 · A (archived source); AC-05.13 · U, A (archived target, BR-06); F-06 archived receiving account: AC with implementation; lifecycle in Sprint 2 |
 | BR-15 | F-15 | 3 | Contract in Sprint 3 · A |
 | BR-16 | F-05, F-06 | 1 | AC-05.10, AC-06.4 / TEST-05.10, TEST-06.4 · A |
 | NFR-01 | F-01 | 1 | AC-01.x · A |

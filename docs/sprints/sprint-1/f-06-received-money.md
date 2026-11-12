@@ -1,6 +1,6 @@
 # F-06 Received Money: Engineering Contract
 
-Requirements: FR-13; BR-04, BR-05, BR-06, BR-07, BR-10, BR-16 · Depends on: F-03 · Contract version: 1.0 · Suggested branch: `feature/F-06-received-money`
+Requirements: FR-13; BR-04, BR-05, BR-06, BR-07, BR-10, BR-14, BR-16 · Depends on: F-03 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-06-received-money`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -27,7 +27,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
   - Source account must be of type `CASH`.
   - Target accounts in Sprint 1 must be of type `INCOME`. (Targeting loan accounts or other cash accounts is introduced in Sprint 2).
   - Target account cannot equal the receiving source account.
-  - Accounts must belong to the session user and not be archived.
+  - Accounts must belong to the session user and not be archived. An archived receiving account returns `400 VALIDATION_ERROR` and nothing is saved (BR-14, as in F-04).
 - **BR-07 (Atomic Balance Effects)**:
   - Receiving Cash account balance increases by `totalAmount`.
   - Each target Income account total increases by its respective line amount.
@@ -48,6 +48,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 - When lines do not sum to total: returns 400 with code `INVALID_ALLOCATION_SUM`.
 - When receiving account is not Cash: returns 400 with code `INVALID_SOURCE_ACCOUNT`.
+- When the receiving account is archived: returns 400 VALIDATION_ERROR (BR-14).
 - When target account is not Income in Sprint 1: returns 400 with code `INVALID_TARGET_ACCOUNT`.
 - When any account belongs to another user: returns 404 NOT_FOUND.
 

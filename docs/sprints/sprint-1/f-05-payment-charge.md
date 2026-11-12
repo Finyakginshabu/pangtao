@@ -1,6 +1,6 @@
 # F-05 Payment and Charge: Engineering Contract
 
-Requirements: FR-12; BR-04, BR-05, BR-06, BR-07, BR-09, BR-10, BR-16 · Depends on: F-03 · Contract version: 1.0 · Suggested branch: `feature/F-05-payment-charge`
+Requirements: FR-12; BR-04, BR-05, BR-06, BR-07, BR-09, BR-10, BR-14, BR-16 · Depends on: F-03 · Contract version: 1.2 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-05-payment-charge`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -17,7 +17,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 3. The user inputs total amount and adds one or more allocation lines specifying target account, line amount, and optional note.
 4. The UI displays the remaining unallocated balance; the submit button remains disabled until the line sum equals the total amount.
 5. On submission, the server verifies input, executes business rule validations, and inserts the transaction and lines inside a single database transaction.
-6. The user is redirected to Transaction History or Dashboard with updated balances.
+6. The user is redirected to the Dashboard with updated balances. (Transaction History arrives with F-07.)
 
 **Rules and validation**
 
@@ -27,7 +27,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
   - When source is **Cash**: target accounts in Sprint 1 may be `EXPENSE` (spending) or `LOAN_TAKEN` (debt repayment).
   - When source is **Loan Taken** (card charge): target accounts in Sprint 1 must be `EXPENSE` only.
   - Target account cannot equal source account.
-  - All referenced accounts must belong to the caller and must not be archived.
+  - All referenced accounts must belong to the caller and must not be archived. An archived source account returns `400 VALIDATION_ERROR` and nothing is saved (BR-14, as in F-04).
 - **BR-16 (Source Account Type)**: The source account must be a `CASH` or `LOAN_TAKEN` account. Any other source type returns `400 INVALID_SOURCE_ACCOUNT` and nothing is saved.
 - **BR-07 (Atomic Balance Effects)**:
   - Cash source: decreases source balance by total.
@@ -47,11 +47,13 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 | Endpoint | Request | Success | Errors |
 |---|---|---|---|
-| POST /api/v1/transactions | `{ kind: "PAYMENT", accountId, txnDate, totalAmount, memo?, lines: [ { targetAccountId, amount, note? } ] }` | 201 `{ transaction: { id, kind, accountId, txnDate, totalAmount, memo, lines } }` | 400 VALIDATION_ERROR; 400 INVALID_SOURCE_ACCOUNT; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 415 UNSUPPORTED_MEDIA_TYPE |
+| POST /api/v1/transactions | `{ kind: "PAYMENT", accountId, txnDate, totalAmount, memo?, lines: [ { targetAccountId, amount, note? } ] }` | 201 `{ transaction: { id, kind, accountId, txnDate, totalAmount, memo, lines } }` | 400 VALIDATION_ERROR; 400 INVALID_ALLOCATION_SUM; 400 FUTURE_DATE_NOT_ALLOWED; 400 INVALID_SOURCE_ACCOUNT; 400 INVALID_TARGET_ACCOUNT; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 415 UNSUPPORTED_MEDIA_TYPE |
 
 - When the source account is not Cash or Loan Taken: returns 400 with code `INVALID_SOURCE_ACCOUNT`.
+- When the source account is archived: returns 400 VALIDATION_ERROR (BR-14).
 - When lines do not sum to total: returns 400 with code `INVALID_ALLOCATION_SUM`.
 - When card source targets a non-expense account in Sprint 1: returns 400 with code `INVALID_TARGET_ACCOUNT`.
+- When a line target is archived, equals the source, or is outside the Sprint 1 matrix: returns 400 with code `INVALID_TARGET_ACCOUNT`.
 - When any account belongs to another user: returns 404 NOT_FOUND.
 
 ### 2.2 UI
@@ -83,6 +85,8 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-05.9 | In the UI, the user records a multi-line charge and sees the live allocation calculation update and submit succeed. |
 | AC-05.10 | Submitting a Payment whose source is an Income, Expense or Loan Given account returns 400 INVALID_SOURCE_ACCOUNT and saves nothing. |
 | AC-05.11 | A zero or negative total or line amount, or an amount above $100,000,000.00\text{ THB}$, returns 400 VALIDATION_ERROR and saves nothing (BR-04). |
+| AC-05.12 | Submitting a Payment whose source account is archived returns 400 VALIDATION_ERROR and saves nothing (BR-14). |
+| AC-05.13 | A line whose target is archived, equals the source, or has a type outside the Sprint 1 matrix (Cash → Expense or Loan Taken; Loan Taken → Expense) returns 400 INVALID_TARGET_ACCOUNT and saves nothing (BR-06). |
 
 ---
 
@@ -98,15 +102,17 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-05.6** | AC-05.6 | A | Alice logged in | POST `/api/v1/transactions` with source: Credit Card and target: Bank Account | 400 INVALID_TARGET_ACCOUNT; nothing saved. |
 | **TEST-05.7** | AC-05.7 | A | Bob logged in; Alice’s account IDs | Bob sends POST `/api/v1/transactions` with Alice’s Bank account as source; then with Alice’s Dining account as a line target | Both return 404 NOT_FOUND; Alice’s balances unchanged. |
 | **TEST-05.8** | AC-05.8 | A | Alice logged in | POST `/api/v1/transactions` with tomorrow's date | 400 FUTURE_DATE_NOT_ALLOWED; nothing saved. |
-| **TEST-05.9** | AC-05.9 | E | Alice logged in | In browser, open `/transactions/new`, select Credit Card, enter 1,200.00 THB, add 2 lines (700 and 500), submit | Form submits, redirects to history; new transaction visible with 2 allocation lines. |
+| **TEST-05.9** | AC-05.9 | E | Alice logged in | In browser, open `/transactions/new`, select Credit Card, enter 1,200.00 THB, add 2 lines (700 and 500), submit | Remaining to allocate updates live and submit stays disabled until it is 0.00 THB; form submits and redirects to the Dashboard; Credit Card debt shows 1,200.00 THB; one PAYMENT with 2 allocation lines is stored. (The History view of this transaction is covered by F-07 TEST-07.6.) |
 | **TEST-05.10** | AC-05.10 | A | Alice logged in; Salary account (`INCOME`) | POST `/api/v1/transactions` (kind: PAYMENT, source: Salary, total: 1,000.00 THB, lines: Dining 1,000.00 THB) | 400 INVALID_SOURCE_ACCOUNT; no transaction or line is saved. |
 | **TEST-05.11** | AC-05.11 | A | Alice logged in; Bank source | POST `/api/v1/transactions` with total 0; then total -100; then total 10000000001; then a valid total with a line amount of 0 | Each returns 400 VALIDATION_ERROR; no transaction or line is saved. |
+| **TEST-05.12** | AC-05.12 | A | Alice logged in; Wallet archived | POST `/api/v1/transactions` (kind: PAYMENT, source: Wallet, total: 100.00 THB, lines: Dining 100.00 THB) | 400 VALIDATION_ERROR; no transaction or line is saved. |
+| **TEST-05.13** | AC-05.13 | U, A | Alice logged in; Bank source | POST `/api/v1/transactions` (source: Bank) with a line targeting, in turn: Wallet (Cash), Salary (Income), Bank itself, an archived Telecom account | Each returns 400 INVALID_TARGET_ACCOUNT; no transaction or line is saved. |
 
 ---
 
 ## 5. Definition of done (F-05)
 
 - Every AC above has an executed automated test with results documented.
-- Failing-first evidence is retained for AC-05.4 (allocation sum mismatch) and AC-05.6 (illegal target type).
+- Failing-first evidence is retained for AC-05.4 (allocation sum mismatch), AC-05.6 (illegal target type) and AC-05.12 (archived source).
 - Atomicity is verified: when a multi-line transaction fails validation, neither the header nor any line is persisted.
 - Product Definition of Done in [README.md](README.md) is met.
