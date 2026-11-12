@@ -86,6 +86,17 @@ test.describe('F-03 Accounts and Balances (STS)', () => {
     await expect(walletRow.getByText('Negative balance')).toBeVisible();
     await expect(debts.getByTestId('account-balance-Credit Card')).toHaveText('400.00 ฿');
     await expect(debts.getByText('Negative balance')).toHaveCount(0);
+
+    // NFR-08: the dashboard remains usable at a 360 px viewport, checked with the widest
+    // content above (thousands separators, minus sign and negative label) on screen.
+    await page.setViewportSize({ width: 360, height: 800 });
+    for (const section of [cash, debts, owed]) await expect(section).toBeInViewport();
+    await expect(walletRow.getByTestId('account-balance-Wallet')).toBeInViewport({ ratio: 1 });
+    await expect(walletRow.getByText('Negative balance')).toBeInViewport({ ratio: 1 });
+    const horizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(horizontalOverflow).toBeLessThanOrEqual(1);
     await page.unroute(ACCOUNTS_URL);
   });
 });
