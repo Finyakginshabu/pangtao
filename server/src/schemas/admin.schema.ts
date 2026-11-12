@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdParamSchema } from './common.schema.js';
 
 /** GET /api/v1/admin/users — limit defaults to 50, maximum 100 (contract §2.1). */
 export const ListUsersQuerySchema = z.object({
@@ -15,8 +16,8 @@ export const ListUsersQuerySchema = z.object({
     .default(0),
 });
 
-/** Route parameter for PATCH /api/v1/admin/users/:id. Malformed ids are a 400, not a 404. */
-export const UserIdSchema = z.string().uuid({ message: 'id must be a valid UUID' });
+/** Route parameter for PATCH /api/v1/admin/users/:id. */
+export const UserIdSchema = IdParamSchema;
 
 /** PATCH /api/v1/admin/users/:id — strictly { isActive: boolean } (contract §1). */
 export const UpdateUserStatusSchema = z

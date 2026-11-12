@@ -1,12 +1,14 @@
-import React, { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { OpeningBalanceDialog } from '../components/OpeningBalanceDialog';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
 import { errorCode, errorMessage } from '../api/http';
-import { Account, AccountType } from '../types/account.types';
+import { Account, AccountType, OpeningBalanceTransaction } from '../types/account.types';
 import { formatSatang } from '../utils/money';
+import { formatCalendarDate } from '../utils/date';
 import { colors, font, radius, shadow, space } from '../styles/theme';
 
 /** f-03 §2.2: the dashboard shows these three groups; Income and Expense totals belong to the F-08 summary. */
@@ -95,7 +97,11 @@ const Amount: React.FC<{ satang: number; size: string; testId?: string }> = ({ s
   </span>
 );
 
-const SectionCard: React.FC<{ section: (typeof SECTIONS)[number]; accounts: Account[] }> = ({ section, accounts }) => {
+const SectionCard: React.FC<{
+  section: (typeof SECTIONS)[number];
+  accounts: Account[];
+  onSetOpeningBalance: (account: Account) => void;
+}> = ({ section, accounts, onSetOpeningBalance }) => {
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);
   const headingId = `dashboard-section-${section.key}-title`;
 
@@ -137,9 +143,40 @@ const SectionCard: React.FC<{ section: (typeof SECTIONS)[number]; accounts: Acco
                 <span style={{ display: 'block', fontSize: font.size.sm, fontWeight: font.weight.medium, color: colors.textPrimary }}>
                   {account.name}
                 </span>
-                {account.subtype && (
-                  <span style={{ fontSize: font.size.xs, color: colors.textMuted }}>{SUBTYPE_LABEL[account.subtype]}</span>
-                )}
+                {/* The action shares the subtype line so the card height stays stable (NFR-08). */}
+                <span style={{ display: 'flex', alignItems: 'center', gap: space[2], flexWrap: 'wrap' }}>
+                  {account.subtype && (
+                    <span style={{ fontSize: font.size.xs, color: colors.textMuted }}>{SUBTYPE_LABEL[account.subtype]}</span>
+                  )}
+                  {account.openingBalance ? (
+                    <span
+                      data-testid={`opening-balance-info-${account.name}`}
+                      style={{ fontSize: font.size.xs, color: colors.textMuted }}
+                    >
+                      Opening balance {formatSatang(account.openingBalance.amount)} on{' '}
+                      {formatCalendarDate(account.openingBalance.date)}
+                    </span>
+                  ) : account.isArchived ? null : (
+                    <button
+                      type="button"
+                      data-testid={`set-opening-balance-${account.name}`}
+                      aria-label={`Set opening balance for ${account.name}`}
+                      onClick={() => onSetOpeningBalance(account)}
+                      style={{
+                        padding: 0,
+                        border: 'none',
+                        background: 'none',
+                        color: colors.cobalt,
+                        fontSize: font.size.xs,
+                        fontWeight: font.weight.medium,
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Set opening balance
+                    </button>
+                  )}
+                </span>
               </span>
               <Amount satang={account.balance} size={font.size.base} testId={`account-balance-${account.name}`} />
             </li>
@@ -165,12 +202,38 @@ const DashboardSkeleton: React.FC = () => (
 export const DashboardPage: React.FC = () => {
   const { user, refetchUser } = useAuth();
   const accountsQuery = useQuery({ queryKey: accountsQueryKey, queryFn: fetchAccounts });
+  const queryClient = useQueryClient();
+  const [openingAccount, setOpeningAccount] = useState<Account | null>(null);
 
   // An expired session re-checks the user, and the route guard then sends them to /login.
   const unauthenticated = errorCode(accountsQuery.error) === 'UNAUTHENTICATED';
   useEffect(() => {
     if (unauthenticated) void refetchUser();
   }, [unauthenticated, refetchUser]);
+
+  /**
+   * f-04 §2.2: an opening balance always adds to these three account types' derived
+   * balances, so the card updates immediately; the refetch then confirms the server value.
+   */
+  const handleOpeningSaved = (transaction: OpeningBalanceTransaction) => {
+    queryClient.setQueryData<Account[]>(accountsQueryKey, (accounts) =>
+      accounts?.map((account) =>
+        account.id === transaction.accountId
+          ? {
+              ...account,
+              balance: account.balance + transaction.totalAmount,
+              openingBalance: {
+                transactionId: transaction.id,
+                amount: transaction.totalAmount,
+                date: transaction.txnDate,
+              },
+            }
+          : account
+      )
+    );
+    setOpeningAccount(null);
+    void queryClient.invalidateQueries({ queryKey: accountsQueryKey });
+  };
 
   return (
     <AppShell>
@@ -196,11 +259,20 @@ export const DashboardPage: React.FC = () => {
                 key={section.key}
                 section={section}
                 accounts={accountsQuery.data.filter((account) => account.type === section.type)}
+                onSetOpeningBalance={setOpeningAccount}
               />
             ))}
           </div>
         ) : null}
       </div>
+
+      {openingAccount && (
+        <OpeningBalanceDialog
+          account={openingAccount}
+          onClose={() => setOpeningAccount(null)}
+          onSaved={handleOpeningSaved}
+        />
+      )}
     </AppShell>
   );
 };
