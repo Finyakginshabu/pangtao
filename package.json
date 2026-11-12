@@ -20,6 +20,7 @@
     "lint": "eslint . --max-warnings=0",
     "evidence:f-01": "node scripts/evidence-f01.mjs",
     "evidence:f-02": "node scripts/evidence-f02.mjs",
+    "evidence:f-03": "node scripts/evidence-f03.mjs",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force"

@@ -1,6 +1,7 @@
 import { requireEnv } from '../server/src/env.js';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { seedAccountsFor } from './seed-accounts.js';
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,7 @@ async function main() {
   ];
 
   for (const user of seedUsers) {
-    await prisma.user.upsert({
+    const saved = await prisma.user.upsert({
       where: { email: user.email },
       update: {
         displayName: user.displayName,
@@ -51,9 +52,14 @@ async function main() {
         passwordHash,
       },
     });
+
+    // F-03: Users get the nine standard accounts; the Administrator owns no financial data (BR-02).
+    if (saved.role === Role.USER) {
+      await seedAccountsFor(prisma, saved.id);
+    }
   }
 
-  console.log('✅ Seed complete: 3 users created/updated.');
+  console.log('✅ Seed complete: 3 users created/updated; 9 accounts per User, no transactions.');
 }
 
 main()

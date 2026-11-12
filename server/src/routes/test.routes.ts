@@ -5,9 +5,10 @@ import { access } from '../middleware/route-guard.middleware.js';
  * Test-only fixture routes, mounted by createApp() ONLY when NODE_ENV=test
  * (never in development or production builds).
  *
- * Sprint 1 placeholders (contract f-01 v1.1): TEST-01.8 exercises role separation
- * here until the real User-only (/accounts, F-03) and Admin-only (/admin/users,
- * F-02) endpoints exist; TEST-01.11 needs a route that genuinely fails.
+ * TEST-01.11 needs a route that genuinely fails. /admin-only and /user-only were the
+ * contract f-01 v1.1 placeholders for TEST-01.8, which now targets the real
+ * /admin/users (F-02) and /accounts (F-03); they stay as minimal fixtures for the
+ * "not mounted outside NODE_ENV=test" deployment check.
  */
 const router = Router();
 

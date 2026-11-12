@@ -1,0 +1,9 @@
+# F-03 evidence: TypeScript compile check, zero errors allowed (DoD §4)
+# Command : npx tsc --noEmit -p server/tsconfig.json && npx tsc --noEmit -p web/tsconfig.json
+# Commit  : ff77a6a0441393efcec39f18992b0bb7982f941d (chore: add pull request template)
+# Tree    : clean for code; uncommitted non-code files: docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-12 17:48:38 (Asia/Bangkok)
+# Node    : v24.19.0
+# Result  : exit code 0
+# Checks the server and web projects in turn. No output below means zero errors in both.
+

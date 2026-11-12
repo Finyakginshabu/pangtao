@@ -68,5 +68,6 @@ Baseline v1.0 contains 25 FR, 16 BR and 10 NFR. Every one is mapped to a feature
 |---|---|---|---|
 | v1.0 | 7 Nov 2026 | Initial baseline | Team |
 | v1.1 | 10 Nov 2026 | F-01 contract v1.1: AC-01.9 verification moved to F-07 (TEST-07.4); no requirement added or dropped | Pending teammate review (PR #10) |
+| v1.2 | 11 Nov 2026 | F-03 contract v1.1: F-03 creates the full ledger schema (accounts, transactions, allocation_lines); AC-03.4 invariant wording made explicit for Loan Taken openings; no requirement added or dropped | Pending teammate review |
 
 All assumptions and decisions (A-01–A-04, D-01–D-07) are fully resolved and agreed by the team; zero open items remain.
