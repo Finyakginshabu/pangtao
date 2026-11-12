@@ -9,7 +9,7 @@ It provides individual users with isolated, private double-entry accounting: tra
 ## Architecture & Tech Stack
 
 * **Frontend**: React 18, TypeScript, Vite, React Router, TanStack Query.
-* **Backend**: Node.js 20, Express, TypeScript, Zod schema validation.
+* **Backend**: Node.js 20 or later, Express, TypeScript, Zod schema validation.
 * **Database & ORM**: PostgreSQL 16, Prisma ORM with managed SQL migrations.
 * **Security & Auth**: HTTP-only session cookies, SHA-256 session token hashing, bcrypt password hashing (cost 12), default-deny role authorization (`USER`, `ADMIN`), and CSRF protection.
 * **Testing**: Vitest + Supertest (unit & API integration) and Playwright (end-to-end browser journeys).
@@ -61,7 +61,7 @@ Follow these 6 steps to run the application and seed the synthetic demo users on
 
 ## Seeded Demo Accounts
 
-The seed script currently creates three deterministic synthetic **users**. All of them log in with the `SEED_DEFAULT_PASSWORD` value you set in `.env`. Their financial accounts (Wallet, Bank Account, Credit Card, income and expense categories) are added to the seed with F-03 (Accounts and Balances).
+The seed script creates three deterministic synthetic **users**. All of them log in with the `SEED_DEFAULT_PASSWORD` value you set in `.env`. Alice and Bob each get nine financial accounts (Wallet, Bank Account, Credit Card, Salary, Interest Earned, Dining, Groceries, Electricity, Telecom) with no transactions. The Administrator has no financial accounts.
 
 | Email | Role | Permissions / Accessible Views |
 |---|---|---|
@@ -98,7 +98,7 @@ Tests need PostgreSQL running (`docker compose up -d`). No app server needs to b
   npm run test:coverage
   ```
 
-* **Regenerate recorded evidence** for a committed version (see [docs/sprints/sprint-1/evidence/](docs/sprints/sprint-1/evidence/README.md)):
+* **Run everything before opening a PR** (lint, type-check, tests with coverage, build, end-to-end; stops at the first failure):
   ```powershell
-  npm run evidence:f-01
+  npm run verify
   ```

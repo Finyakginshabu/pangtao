@@ -95,3 +95,54 @@ test.describe('TEST-02.8 (AC-02.8): Admin user management UI', () => {
     expect(horizontalOverflow).toBeLessThanOrEqual(1);
   });
 });
+
+test.describe('F-02 Admin User Management (STS)', () => {
+  test('TEST-02.4 (AC-02.4): a signed-in user loses their session as soon as the Administrator disables them', async ({
+    page,
+    browser,
+  }) => {
+    await loginAsAdmin(page);
+    const bobRow = page.getByTestId('user-row-bob@example.test');
+    const bobStatus = page.getByTestId('user-status-bob@example.test');
+    const confirm = page.getByTestId('confirm-status-change');
+    await expect(bobRow).toBeVisible();
+
+    // Normalize Bob to Active so the journey is repeatable.
+    if ((await bobStatus.textContent())?.trim() === 'Disabled') {
+      await bobRow.getByRole('button', { name: 'Enable Bob User' }).click();
+      await confirm.click();
+      await expect(bobStatus).toHaveText('Active');
+    }
+
+    // Bob signs in from a separate browser session and reaches his dashboard.
+    const bobContext = await browser.newContext();
+    try {
+      const bobPage = await bobContext.newPage();
+      await bobPage.goto('/login');
+      await bobPage.fill('#email', 'bob@example.test');
+      await bobPage.fill('#password', SEED_PASSWORD);
+      await bobPage.click('button[type="submit"]');
+      await expect(bobPage.getByTestId('dashboard-section-cash')).toBeVisible();
+
+      // The Administrator disables Bob while Bob's session is still open.
+      await bobRow.getByRole('button', { name: 'Disable Bob User' }).click();
+      await confirm.click();
+      await expect(bobStatus).toHaveText('Disabled');
+
+      // Bob's existing cookie no longer works: the API answers 401 and the app returns him to login.
+      const me = await bobPage.request.get('/api/v1/auth/me');
+      expect(me.status()).toBe(401);
+      await bobPage.reload();
+      await expect(bobPage).toHaveURL(/\/login/);
+      await expect(bobPage.getByTestId('dashboard-section-cash')).toHaveCount(0);
+    } finally {
+      await bobContext.close();
+      // Leave the seeded data as it was for the other journeys.
+      if ((await bobStatus.textContent())?.trim() === 'Disabled') {
+        await bobRow.getByRole('button', { name: 'Enable Bob User' }).click();
+        await confirm.click();
+        await expect(bobStatus).toHaveText('Active');
+      }
+    }
+  });
+});

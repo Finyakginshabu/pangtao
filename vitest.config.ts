@@ -18,6 +18,8 @@ export default defineConfig({
       exclude: ['server/src/index.ts', 'server/src/types/**'],
       // Wide text table so full file names show in logs (non-TTY output defaults to 80 columns).
       reporter: [['text', { maxCols: 200 }], 'json', 'html'],
+      // NFR-09: the run fails when service-layer line coverage drops below 80%.
+      thresholds: { 'server/src/services/**': { lines: 80 } },
     },
   },
 });

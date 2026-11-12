@@ -79,8 +79,13 @@ export class AccountService {
           select: { id: true, name: true, type: true, subtype: true, isArchived: true },
         });
         const balances = await tx.$queryRaw<Array<{ id: string; balance: bigint }>>(balanceQuery(userId));
+        // BR-11: only Cash, Loan Taken and Loan Given accounts may own an opening balance, so
+        // a stray row on an Income/Expense account never becomes API metadata (f-03 §2.1).
+        const openingAccountIds = accounts
+          .filter((account) => account.type !== 'INCOME' && account.type !== 'EXPENSE')
+          .map((account) => account.id);
         const openings = await tx.transaction.findMany({
-          where: { userId, kind: 'OPENING_BALANCE', voidedAt: null },
+          where: { userId, kind: 'OPENING_BALANCE', voidedAt: null, accountId: { in: openingAccountIds } },
           select: { id: true, accountId: true, totalAmount: true, txnDate: true },
         });
         return { accounts, balances, openings };

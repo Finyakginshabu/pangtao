@@ -9,7 +9,7 @@ Pangtao is a modular monolith: one backend that also serves the built frontend, 
 | Layer | Choice | Reason |
 |---|---|---|
 | UI | React 18 + TypeScript (Vite), React Router, TanStack Query | Mainstream and typed; the query cache gives loading, error and refetch states for free |
-| API / application | Node.js 20 + Express + TypeScript, Zod validation | One language across the stack; schemas validate every request |
+| API / application | Node.js 20 or later + Express + TypeScript, Zod validation | One language across the stack; schemas validate every request |
 | Persistence | PostgreSQL 16 with Prisma (client and migrations) | ACID transactions, CHECK and foreign-key constraints, BIGINT for money |
 | Authentication | bcrypt, database-backed sessions, httpOnly cookie | Logout and user disabling take effect immediately |
 | Testing | Vitest + Supertest against a real Postgres; Playwright for end-to-end | Real persistence is exercised; no mock-only database tests |
@@ -21,7 +21,7 @@ Browser (React single-page app)
    v
 Express application (one container)
    |-- middleware: request id, logging, session lookup, origin check, role guard, Zod validation
-   |-- routes (thin) -> services (business rules, one DB transaction) -> repositories (Prisma)
+   |-- routes (thin) -> services (business rules and Prisma queries, one DB transaction)
    |-- serves the built React files in production
    v
 PostgreSQL: users, sessions, accounts, transactions, allocation_lines
@@ -31,14 +31,14 @@ PostgreSQL: users, sessions, accounts, transactions, allocation_lines
 
 | Concern | Enforced in | Notes |
 |---|---|---|
-| Authentication and role | Middleware (requireAuth, requireRole) | Default deny: a route without a declared role is rejected |
-| Ownership | Every repository query filters by the session user id; composite foreign keys in the database | Another user’s id behaves as not found |
+| Authentication and role | Middleware: every route declares `access(...)`, built on requireAuth and requireRole | Default deny: a route without a declared role is rejected |
+| Ownership | Every service query filters by the session user id; composite foreign keys in the database | Another user’s id behaves as not found |
 | Request shape | Zod schemas at the route boundary | Unknown fields rejected |
 | Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own |
 | Integrity | Database constraints (NOT NULL, CHECK, foreign keys, unique) | Last line of defence |
 | UI | Convenience only (inline validation, hidden controls) | Never trusted for security or correctness |
 
-Repository layout: `web/` (React), `server/` (routes, services, repositories, middleware), `prisma/` (schema, migrations, seed), `tests/` (api, e2e), `docs/`.
+Repository layout: `web/` (React), `server/` (routes, services, schemas, middleware), `prisma/` (schema, migrations, seed), `tests/` (unit, api, e2e, helpers), `docs/`. There is no separate repository layer: services call Prisma directly.
 
 ## 2. Data model
 
@@ -54,7 +54,7 @@ erDiagram
 
 | Entity | Key fields | Constraints |
 |---|---|---|
-| users | id (UUID); email; display_name; password_hash; role (USER or ADMIN); is_active; created_at | email unique and stored lower-case |
+| users | id (UUID); email; display_name; password_hash; role (USER or ADMIN); is_active; created_at; updated_at | email unique and stored lower-case |
 | sessions | id; token_hash (SHA-256); user_id; created_at; expires_at | Deleted with the user; indexed on user_id and expires_at |
 | accounts | id; user_id; name; type (CASH, LOAN_TAKEN, LOAN_GIVEN, INCOME, EXPENSE); subtype (WALLET, BANK, CREDIT_CARD, OTHER; nullable); is_archived; created_at | UNIQUE (user_id, name); UNIQUE (user_id, id) to support composite foreign keys; CHECK subtype is valid for type |
 | transactions | id; user_id; kind (PAYMENT, RECEIPT, OPENING_BALANCE); account_id (source); txn_date (DATE); total_amount (BIGINT satang); memo; is_favorite; voided_at; created_at; updated_at | Composite FK (user_id, account_id) to accounts; CHECK total_amount > 0 unless OPENING_BALANCE, and ≤ 10,000,000,000 (100,000,000.00 THB); partial unique index: one active OPENING_BALANCE per account; index (user_id, txn_date DESC, created_at DESC) |
@@ -75,7 +75,7 @@ erDiagram
 
 Income and expense summaries read only lines whose target account type is Income or Expense, so transfers, borrowing, lending, repayments and opening balances are excluded by construction (BR-08).
 
-**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. Implementation will create seed data (actual values set during Sprint 1 development) with the following structure: seed users include admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. The four-transaction demonstration fixture used by the summary tests (TEST-08.1) is created by test code or documented demo steps, not by the seed. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests run against a separate test database (`<database>_test`, migrated automatically before each run) and reset and reseed it before each test file, running files sequentially; the development database is never touched.
+**Setup and seed.** Schema changes are Prisma migrations (`db:migrate`); `db:seed` loads deterministic synthetic data; `db:reset` rebuilds a development database. The seed creates the users admin@example.test (ADMIN), alice@example.test and bob@example.test (USER). Alice and Bob each get Wallet and Bank Account (Cash), Credit Card (Loan Taken), Salary and Interest Earned (Income), and Dining, Groceries, Electricity and Telecom (Expense), with no transactions, so tests and demos start clean. The four-transaction demonstration fixture used by the summary tests (TEST-08.1) is created by test code or documented demo steps, not by the seed. Passwords come from the SEED_DEFAULT_PASSWORD variable, never from committed files. Automated tests run against a separate test database (`<database>_test`, migrated automatically before each run) and reset and reseed it before each test, running files sequentially; the development database is never touched.
 
 ## 3. UI structure and conventions
 
@@ -150,7 +150,7 @@ Later features (account management, loans, transfers, edit and void, search, fav
 - **Current user.** Middleware looks up the session by token hash, checks it is unexpired and the user is active, and attaches id and role to the request. `GET /auth/me` returns id, display name, email and role.
 - **Logout.** Deletes the session row and clears the cookie (204). The old token is useless afterwards.
 - **Disabling a user.** Deletes all of that user’s sessions in the same transaction; the active check on every request is a backstop.
-- **Brute force.** Login is limited to 10 attempts per 15 minutes per IP and email (429).
+- **Brute force.** Login is limited to 10 failed attempts per 15 minutes per IP and email (429); a successful login clears the count.
 - **CSRF.** SameSite=Lax cookie, state-changing requests must be application/json and pass an Origin check, and CORS is not enabled (same origin).
 - Passwords and session tokens are never logged.
 
