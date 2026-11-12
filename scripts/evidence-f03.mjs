@@ -9,7 +9,7 @@
  * Uncommitted changes to code files abort the run; other uncommitted files are
  * listed in each header.
  *
- * Steps: lint, unit+API tests, coverage, seed + E2E, then:
+ * Steps: lint, type-check (server + web), unit+API tests, coverage, seed + E2E, then:
  *  - an API red replay: the /accounts mount is removed and all five API tests must fail
  *    with 404, reproducing on the final commit how the API tests failed in the red commit;
  *  - failing-first mutation checks for the ACs the F-03 DoD names (AC-03.3, AC-03.4), at
@@ -81,7 +81,9 @@ function sanitize(text) {
   for (const [p, label] of [[ROOT, '<repo>'], [os.homedir(), '<home>']]) {
     for (const v of pathVariants(p)) out = out.replace(new RegExp(escapeRe(v), 'gi'), label);
   }
-  return out;
+  // Paths baked in elsewhere (e.g. a Prisma client generated in another checkout) do not
+  // start with ROOT; any absolute path that reaches a repo top-level folder is <repo> too.
+  return out.replace(/(?:[A-Za-z]:)?(?:[\\/][^\s\\/:'"`<>|]+)+?[\\/](?=(?:server|web|tests|prisma|scripts|node_modules)[\\/])/g, '<repo>/');
 }
 
 const CHILD_ENV = { ...process.env, NO_COLOR: '1' };
@@ -224,6 +226,12 @@ function step(name, title, command, { expectExit = 0, note = [], timeoutMs } = {
 step('lint.txt', 'ESLint, zero warnings allowed (DoD §4)', 'npx eslint . --max-warnings=0', {
   note: ['No output below means no errors and no warnings.'],
 });
+step(
+  'typecheck.txt',
+  'TypeScript compile check, zero errors allowed (DoD §4)',
+  'npx tsc --noEmit -p server/tsconfig.json && npx tsc --noEmit -p web/tsconfig.json',
+  { note: ['Checks the server and web projects in turn. No output below means zero errors in both.'] }
+);
 step('npm-test.txt', 'Unit + API tests (Vitest, verbose)', 'npx vitest run --reporter=verbose');
 step('coverage.txt', 'Line coverage, NFR-09 target >= 80% (service layer)', 'npx vitest run --coverage');
 
