@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { IdParamSchema } from './common.schema.js';
 import { isRealCalendarDate } from '../utils/date.util.js';
 
-/** Route parameter for POST /api/v1/accounts/:id/opening-balance. Malformed ids are a 400, not a 404. */
-export const AccountIdSchema = z.string().uuid({ message: 'id must be a valid UUID' });
+/** Route parameter for POST /api/v1/accounts/:id/opening-balance. */
+export const AccountIdSchema = IdParamSchema;
 
 /**
  * POST /api/v1/accounts/:id/opening-balance — strictly { amount, date } (f-04 §2.1).

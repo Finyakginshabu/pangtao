@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createOpeningBalance } from '../api/accounts.api';
-import { errorMessage } from '../api/http';
+import { errorCode, errorMessage } from '../api/http';
+import { useAuth } from '../context/AuthContext';
 import { Account, OpeningBalanceTransaction } from '../types/account.types';
 import { parseThbToSatang } from '../utils/money';
 import { bangkokToday, isFutureDate } from '../utils/date';
@@ -37,6 +38,7 @@ export const OpeningBalanceDialog: React.FC<OpeningBalanceDialogProps> = ({
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { refetchUser } = useAuth();
   const today = bangkokToday();
 
   useEffect(() => {
@@ -79,6 +81,11 @@ export const OpeningBalanceDialog: React.FC<OpeningBalanceDialogProps> = ({
       const transaction = await createOpeningBalance(account.id, { amount: satang, date });
       onSaved(transaction);
     } catch (error) {
+      // F-01 §2.2: a 401 means the session expired; re-check the user so the route guard redirects.
+      if (errorCode(error) === 'UNAUTHENTICATED') {
+        await refetchUser();
+        return;
+      }
       setServerError(errorMessage(error, 'Unable to save the opening balance. Please try again.'));
     } finally {
       setIsSaving(false);

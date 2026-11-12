@@ -156,7 +156,7 @@ const SectionCard: React.FC<{
                       Opening balance {formatSatang(account.openingBalance.amount)} on{' '}
                       {formatCalendarDate(account.openingBalance.date)}
                     </span>
-                  ) : (
+                  ) : account.isArchived ? null : (
                     <button
                       type="button"
                       data-testid={`set-opening-balance-${account.name}`}
