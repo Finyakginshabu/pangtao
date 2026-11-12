@@ -1,8 +1,8 @@
 # F-03 evidence: failing-first check for TEST-03.4 (U, invariant)
 # Command : npx vitest run tests/unit/balance.engine.test.ts -t "TEST-03.4" --reporter=verbose
-# Commit  : f2a9cb3ea5a26de075be927e7ddd267e5dfcb380 (feat(F-03): implement accounts and balances)
-# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md
-# Date    : 2026-11-11 23:17:50 (Asia/Bangkok)
+# Commit  : ff77a6a0441393efcec39f18992b0bb7982f941d (chore: add pull request template)
+# Tree    : clean for code; uncommitted non-code files: docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-12 17:48:38 (Asia/Bangkok)
 # Node    : v24.19.0
 # Red commit: b30ef60ddf0c22ae545f6079687bf4d1d9c92685 (tests committed before implementation: genuine red-to-green commit)
 # DISCLOSURE: this is a mutation check run on the committed green state. It removes the
@@ -37,8 +37,8 @@ index 1123f2f..6e01fb2 100644
 
  Test Files  1 failed (1)
       Tests  1 failed | 6 skipped (7)
-   Start at  23:19:20
-   Duration  1.40s (transform 46ms, setup 11ms, collect 51ms, tests 5ms, environment 0ms, prepare 57ms)
+   Start at  17:50:02
+   Duration  1.39s (transform 48ms, setup 11ms, collect 52ms, tests 6ms, environment 0ms, prepare 51ms)
 
 The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
@@ -71,7 +71,7 @@ AssertionError: expected 7960000n to be 7880000n // Object.is equality
 
  Test Files  1 passed (1)
       Tests  1 passed | 6 skipped (7)
-   Start at  23:19:22
-   Duration  1.42s (transform 47ms, setup 10ms, collect 51ms, tests 2ms, environment 0ms, prepare 57ms)
+   Start at  17:50:05
+   Duration  1.47s (transform 49ms, setup 12ms, collect 53ms, tests 1ms, environment 0ms, prepare 55ms)
 
 The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

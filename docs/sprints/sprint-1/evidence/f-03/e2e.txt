@@ -1,8 +1,8 @@
 # F-03 evidence: Playwright end-to-end (TEST-03.6, plus TEST-02.8 and TEST-01.14 regression)
 # Command : npx playwright test --reporter=list
-# Commit  : f2a9cb3ea5a26de075be927e7ddd267e5dfcb380 (feat(F-03): implement accounts and balances)
-# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md
-# Date    : 2026-11-11 23:17:50 (Asia/Bangkok)
+# Commit  : ff77a6a0441393efcec39f18992b0bb7982f941d (chore: add pull request template)
+# Tree    : clean for code; uncommitted non-code files: docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-12 17:48:38 (Asia/Bangkok)
 # Node    : v24.19.0
 # Result  : 3/3 tests passed (every per-test line is "ok")
 # Exit    : all results were reported, but Playwright did not exit within 15 s afterwards (a known
@@ -13,8 +13,8 @@
 
 Running 3 tests using 1 worker
 
-(node:8228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(node:5008) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  ok 1 [chromium] › tests\e2e\admin-users.spec.ts:21:3 › TEST-02.8 (AC-02.8): Admin user management UI › toggles user status with confirmation, protects the self row, and handles loading and retry (9.2s)
-  ok 2 [chromium] › tests\e2e\auth.spec.ts:10:3 › TEST-01.14 (AC-01.14): End-to-End Authentication Journey › User login, route protection, logout, and role isolation (1.6s)
-  ok 3 [chromium] › tests\e2e\dashboard.spec.ts:20:3 › F-03 Accounts and Balances (STS) › TEST-03.6 (AC-03.6): dashboard groups accounts with THB figures, empty placeholders, negative labels, skeleton and error retry (1.8s)
+  ok 1 [chromium] › tests\e2e\admin-users.spec.ts:21:3 › TEST-02.8 (AC-02.8): Admin user management UI › toggles user status with confirmation, protects the self row, and handles loading and retry (2.0s)
+  ok 2 [chromium] › tests\e2e\auth.spec.ts:10:3 › TEST-01.14 (AC-01.14): End-to-End Authentication Journey › User login, route protection, logout, and role isolation (1.4s)
+  ok 3 [chromium] › tests\e2e\dashboard.spec.ts:20:3 › F-03 Accounts and Balances (STS) › TEST-03.6 (AC-03.6): dashboard groups accounts with THB figures, empty placeholders, negative labels, skeleton and error retry (1.7s)

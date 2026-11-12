@@ -1,8 +1,8 @@
 # F-03 evidence: Line coverage, NFR-09 target >= 80% (service layer)
 # Command : npx vitest run --coverage
-# Commit  : f2a9cb3ea5a26de075be927e7ddd267e5dfcb380 (feat(F-03): implement accounts and balances)
-# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md
-# Date    : 2026-11-11 23:17:50 (Asia/Bangkok)
+# Commit  : ff77a6a0441393efcec39f18992b0bb7982f941d (chore: add pull request template)
+# Tree    : clean for code; uncommitted non-code files: docs/sprints/sprint-1/evidence/README.md
+# Date    : 2026-11-12 17:48:38 (Asia/Bangkok)
 # Node    : v24.19.0
 # Result  : exit code 0
 
@@ -10,23 +10,23 @@
  RUN  v2.1.9 <repo>
       Coverage enabled with v8
 
- ✓ tests/api/auth.api.test.ts (17 tests) 6180ms
-   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.1 (AC-01.1): Successful login returns user profile, sets sid cookie, and creates session row 404ms
-   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.2 (AC-01.2): Unknown email, wrong password, and disabled user return identical 401 response without cookie 765ms
-   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED 2440ms
- ✓ tests/api/admin.api.test.ts (10 tests) 2563ms
-   ✓ F-02 Admin User Management (STS) > TEST-02.3 (AC-02.3): Disabling a user returns 200 and blocks subsequent login with 401 INVALID_CREDENTIALS 398ms
-   ✓ F-02 Admin User Management (STS) > TEST-02.5 (AC-02.5): Re-enabling a disabled user restores login and session establishment 408ms
- ✓ tests/api/accounts.api.test.ts (5 tests) 1704ms
-   ✓ F-03 Accounts and Balances (STS) > TEST-03.5 (AC-03.5): the SQL aggregation behind the API and the pure engine agree on every account 737ms
- ✓ tests/unit/balance.engine.test.ts (7 tests) 25ms
- ✓ tests/unit/auth.service.test.ts (3 tests) 573ms
-   ✓ Auth Utility & Pure Service Unit Tests (U) > hashes passwords using bcrypt with salt rounds >= 12 571ms
+ ✓ tests/api/auth.api.test.ts (17 tests) 6416ms
+   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.1 (AC-01.1): Successful login returns user profile, sets sid cookie, and creates session row 424ms
+   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.2 (AC-01.2): Unknown email, wrong password, and disabled user return identical 401 response without cookie 779ms
+   ✓ F-01 Authentication and Authorization Foundation (STS) > TEST-01.12 (AC-01.12): Rate limiting blocks 11th failed login attempt within 15 mins with 429 RATE_LIMITED 2536ms
+ ✓ tests/api/admin.api.test.ts (10 tests) 2619ms
+   ✓ F-02 Admin User Management (STS) > TEST-02.3 (AC-02.3): Disabling a user returns 200 and blocks subsequent login with 401 INVALID_CREDENTIALS 399ms
+   ✓ F-02 Admin User Management (STS) > TEST-02.5 (AC-02.5): Re-enabling a disabled user restores login and session establishment 412ms
+ ✓ tests/api/accounts.api.test.ts (5 tests) 1750ms
+   ✓ F-03 Accounts and Balances (STS) > TEST-03.5 (AC-03.5): the SQL aggregation behind the API and the pure engine agree on every account 784ms
+ ✓ tests/unit/balance.engine.test.ts (7 tests) 26ms
+ ✓ tests/unit/auth.service.test.ts (3 tests) 586ms
+   ✓ Auth Utility & Pure Service Unit Tests (U) > hashes passwords using bcrypt with salt rounds >= 12 584ms
 
  Test Files  5 passed (5)
       Tests  42 passed (42)
-   Start at  23:18:09
-   Duration  14.53s (transform 136ms, setup 36ms, collect 1.08s, tests 11.05s, environment 1ms, prepare 329ms)
+   Start at  17:49:01
+   Duration  14.71s (transform 146ms, setup 39ms, collect 1.11s, tests 11.40s, environment 1ms, prepare 315ms)
 
  % Coverage report from v8
 ----------------------------|---------|----------|---------|---------|-------------------
@@ -63,7 +63,7 @@ All files                   |    95.7 |    82.35 |     100 |    95.7 |
 ----------------------------|---------|----------|---------|---------|-------------------
 The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
 stderr | tests/api/auth.api.test.ts > F-01 Authentication and Authorization Foundation (STS) > TEST-01.11 (AC-01.11): A forced internal exception returns a sanitized 500 INTERNAL_ERROR with X-Request-Id and no stack trace, SQL, or file paths
-[INTERNAL_ERROR] [2a95d2cb-ec6a-48eb-9080-505746f8a10b] Error: Invalid `prisma.session.findUnique()` invocation in C:\srv\pangtao\server\src\middleware\auth.middleware.ts:17:44 -> SELECT "public"."sessions"."token_hash" FROM "public"."sessions" WHERE "token_hash" = $1: relation "sessions" does not exist
+[INTERNAL_ERROR] [8e322920-f4e4-4c50-a6a3-d3b5bca048c9] Error: Invalid `prisma.session.findUnique()` invocation in <repo>/server\src\middleware\auth.middleware.ts:17:44 -> SELECT "public"."sessions"."token_hash" FROM "public"."sessions" WHERE "token_hash" = $1: relation "sessions" does not exist
     at <repo>\server\src\routes\test.routes.ts:26:11
     at Layer.handle [as handle_request] (<repo>\node_modules\express\lib\router\layer.js:95:5)
     at next (<repo>\node_modules\express\lib\router\route.js:149:13)

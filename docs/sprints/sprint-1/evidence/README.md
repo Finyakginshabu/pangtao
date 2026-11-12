@@ -43,4 +43,27 @@ npm run evidence:f-02
 
 Each failing-first file also records the commit that added the API tests. When that commit predates the implementation, it is the genuine red-to-green evidence; the mutation check then proves the test still detects the behavior on the final commit.
 
+## F-03 Accounts and Balances ([contract](../f-03-accounts-balances.md) §5)
+
+Regenerate on the committed F-03 state (Postgres must be running, ports 8080 and 3000 free; the script starts and stops both dev servers itself):
+
+```powershell
+npm run evidence:f-03
+```
+
+| File | Shows | DoD item |
+|---|---|---|
+| [f-03/lint.txt](f-03/lint.txt) | `eslint . --max-warnings=0` exits 0 | §4 clean linting |
+| [f-03/typecheck.txt](f-03/typecheck.txt) | `tsc --noEmit` on `server/` and `web/` exits 0 (zero errors) | §4 clean compilation |
+| [f-03/npm-test.txt](f-03/npm-test.txt) | Unit + API test run (verbose): TEST-03.1 to TEST-03.5 and all earlier tests, pass/fail/skip counts | §3 automated verification |
+| [f-03/coverage.txt](f-03/coverage.txt) | Line coverage per file, including `account.service.ts` and `balance.engine.ts` | §4 coverage ≥ 80% (NFR-09) |
+| [f-03/e2e.txt](f-03/e2e.txt) | Playwright journey TEST-03.6 (including the 360 px check, NFR-08), plus TEST-02.8 and TEST-01.14 regression | §3 E2E for AC-03.6 |
+| [f-03/red-replay-api.txt](f-03/red-replay-api.txt) | Route mount removed on the final commit → all five API tests fail with 404, as in the red commit; restored → pass | §3 TDD evidence |
+| [f-03/failing-first-TEST-03.3-unit.txt](f-03/failing-first-TEST-03.3-unit.txt) | Mutation check: pure engine counts voided transactions → TEST-03.3 (U) fails; restored → passes | F-03 §5 failing-first (AC-03.3) |
+| [f-03/failing-first-TEST-03.3-api.txt](f-03/failing-first-TEST-03.3-api.txt) | Mutation check: `voided_at` filter removed from the SQL aggregation → TEST-03.3 (A) fails; restored → passes | F-03 §5 failing-first (AC-03.3) |
+| [f-03/failing-first-TEST-03.4-unit.txt](f-03/failing-first-TEST-03.4-unit.txt) | Mutation check: Loan Taken debt added to net worth → TEST-03.4 (U) fails; restored → passes | F-03 §5 failing-first (AC-03.4) |
+| [f-03/failing-first-TEST-03.4-api.txt](f-03/failing-first-TEST-03.4-api.txt) | Mutation check: card repayments no longer reduce debt in the SQL → TEST-03.4 (A) fails; restored → passes | F-03 §5 failing-first (AC-03.4) |
+
+**Red-to-green history.** F-03 was built test-first: commit `b30ef60` (`test(F-03): add failing acceptance tests …`) adds the acceptance tests before `f2a9cb3` adds the implementation. Each failing-first file names that red commit in its header; the mutation checks then show the tests still detect the behavior on the final commit.
+
 **Not in this folder.** AC-01.9 is verified by TEST-07.4 in F-07 (contract v1.1). CI runs arrive with F-19 (Lab 5).
