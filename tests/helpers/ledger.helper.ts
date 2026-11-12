@@ -101,6 +101,26 @@ export async function insertDemoLedger(userId: string) {
   return { ids, openingTransactionId: opening.id, voidedTransactionId: voided.id };
 }
 
+/** Bangkok calendar date (`YYYY-MM-DD`) offset by whole days from now (BR-10 uses Asia/Bangkok). */
+export function bangkokDate(offsetDays: number): string {
+  const shifted = new Date(Date.now() + offsetDays * 86_400_000);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(shifted);
+}
+
+/** Transaction and allocation-line row counts for one user ("nothing saved" assertions). */
+export async function countLedgerRows(userId: string): Promise<{ transactions: number; lines: number }> {
+  const [transactions, lines] = await Promise.all([
+    prisma.transaction.count({ where: { userId } }),
+    prisma.allocationLine.count({ where: { userId } }),
+  ]);
+  return { transactions, lines };
+}
+
 /** One user's ledger, shaped for the pure balance engine. */
 export async function loadLedger(
   userId: string
