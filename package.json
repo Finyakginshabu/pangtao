@@ -18,9 +18,8 @@
     "test:api": "vitest run tests/api",
     "test:e2e": "playwright test",
     "lint": "eslint . --max-warnings=0",
-    "evidence:f-01": "node scripts/evidence-f01.mjs",
-    "evidence:f-02": "node scripts/evidence-f02.mjs",
-    "evidence:f-03": "node scripts/evidence-f03.mjs",
+    "typecheck": "tsc --noEmit -p server/tsconfig.json && tsc --noEmit -p web/tsconfig.json",
+    "verify": "npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force"

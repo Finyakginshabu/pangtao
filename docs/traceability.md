@@ -15,7 +15,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | FR-05 | F-02 | 1 | AC-02.x / TEST-02.x · A |
 | FR-06 | F-02 | 1 | AC-02.x / TEST-02.x · A, E |
 | FR-07 | F-17 | 3 | Contract in Sprint 3 · A |
-| FR-08 | F-03 | 1 | AC-03.x / TEST-03.x · U, A, E |
+| FR-08 | F-03, F-08 | 1 | AC-03.x / TEST-03.x · U, A, E (accounts and balances API); AC-08.x / TEST-08.x · U, A, E (income/expense totals) |
 | FR-09 | F-09 | 2 | Contract in Sprint 2 · A, E |
 | FR-10 | F-04 | 1 | AC-04.x / TEST-04.x · U, A |
 | FR-11 | F-12 | 2 | Contract in Sprint 2 · A |
@@ -67,7 +67,35 @@ Baseline v1.0 contains 25 FR, 16 BR and 10 NFR. Every one is mapped to a feature
 | Version | Date | Change | Approved |
 |---|---|---|---|
 | v1.0 | 7 Nov 2026 | Initial baseline | Team |
-| v1.1 | 10 Nov 2026 | F-01 contract v1.1: AC-01.9 verification moved to F-07 (TEST-07.4); no requirement added or dropped | Pending teammate review (PR #10) |
-| v1.2 | 11 Nov 2026 | F-03 contract v1.1: F-03 creates the full ledger schema (accounts, transactions, allocation_lines); AC-03.4 invariant wording made explicit for Loan Taken openings; no requirement added or dropped | Pending teammate review |
+| v1.1 | 10 Nov 2026 | F-01 contract v1.1: AC-01.9 verification moved to F-07 (TEST-07.4); no requirement added or dropped | Teammate review, PR #10 (approved and merged) |
+| v1.2 | 11 Nov 2026 | F-03 contract v1.1: F-03 creates the full ledger schema (accounts, transactions, allocation_lines); AC-03.4 invariant wording made explicit for Loan Taken openings; no requirement added or dropped | Teammate review, PR #12 (approved and merged) |
+| v1.3 | 12 Nov 2026 | System-Level SDS §1 corrected to match the code: services call Prisma directly (no separate repository layer), the route guard is `access(...)`, the repository layout lists `tests/unit`, `tests/helpers` and `scripts/`, the runtime is Node.js 20 or later, and brute-force limiting counts failed attempts only (as SRS NFR-10 and F-01 state). Feature inventory and sprint README list BR-01 for F-07, matching the F-07 contract and this matrix. F-01 contract v1.4: §2.2 aligned with web app route guarding (Administrator on User page redirected to `/admin/users`, API 401 redirects to `/login`). §3 below added with actual Sprint 1 test results. Product DoD 1.1 and F-01 contract 1.3–1.4 (sprint README §5): results are recorded in the PR and, from Lab 5, in CI; the committed per-feature evidence folder is removed and kept in git history. No requirement added or dropped. FR-08 is traced to F-03 (accounts and balances API) and F-08 (income/expense totals), and the verification record names the feature baseline plus this documentation commit rather than `cec8b61` alone | Pending teammate review |
 
 All assumptions and decisions (A-01–A-04, D-01–D-07) are fully resolved and agreed by the team; zero open items remain.
+
+## 3. Sprint 1 verification results
+
+Actual tests and results for every Sprint 1 acceptance criterion. Automated test names start with their test ID, for example `TEST-03.3 (AC-03.3): …`, so each row can be found by searching the file for the ID.
+
+**Tested version:** `sprint-1-staging` at commit `cec8b61` (merge of PR #12), 12 Nov 2026, plus this documentation and verification commit on `docs/sprint-1-align-contracts` (its head commit is recorded in the PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 44 passed, 0 failed, 0 skipped, service-layer line coverage 98.41%, build succeeded, `npx playwright test` 4 passed, 0 failed, 0 skipped (TEST-02.4 end-to-end added). Update this table and the tested version whenever a feature merges into staging.
+
+| AC | Test | Level | Actual test file | Result |
+|---|---|---|---|---|
+| AC-01.1 to AC-01.8 | TEST-01.1 to TEST-01.8 | A | `tests/api/auth.api.test.ts` | PASS |
+| AC-01.9 | TEST-07.4 (f-01 v1.1) | A | Not written yet: arrives with F-07 | NOT VERIFIED |
+| AC-01.10 to AC-01.13 | TEST-01.10 to TEST-01.13 | A | `tests/api/auth.api.test.ts` | PASS |
+| AC-01.14 | TEST-01.14 | E | `tests/e2e/auth.spec.ts` | PASS |
+| AC-02.1 to AC-02.3 | TEST-02.1 to TEST-02.3 | A | `tests/api/admin.api.test.ts` | PASS |
+| AC-02.4 | TEST-02.4 | A, E | `tests/api/admin.api.test.ts` and `tests/e2e/admin-users.spec.ts` | PASS at both levels |
+| AC-02.5 to AC-02.7 | TEST-02.5 to TEST-02.7 | A | `tests/api/admin.api.test.ts` | PASS |
+| AC-02.8 | TEST-02.8 | E | `tests/e2e/admin-users.spec.ts` | PASS |
+| AC-02.9 | TEST-02.9 | A | `tests/api/admin.api.test.ts` | PASS |
+| AC-03.1, AC-03.2 | TEST-03.1, TEST-03.2 | A | `tests/api/accounts.api.test.ts` | PASS |
+| AC-03.3, AC-03.4 | TEST-03.3, TEST-03.4 | U, A | `tests/unit/balance.engine.test.ts` and `tests/api/accounts.api.test.ts` | PASS at both levels |
+| AC-03.5 | TEST-03.5 | A | `tests/api/accounts.api.test.ts` | PASS |
+| AC-03.6 | TEST-03.6 | E | `tests/e2e/dashboard.spec.ts` | PASS |
+| AC-04.x to AC-08.x | TEST-04.x to TEST-08.x | per contract | Not written yet | NOT IMPLEMENTED (F-04 to F-08) |
+
+**Status by feature:** F-01, F-02 and F-03 are implemented and merged into `sprint-1-staging`. F-01 is not Done until TEST-07.4 passes (AC-01.9). F-04 to F-08 are not started. Nothing is released on `main` yet.
+
+**Where results are recorded:** in each feature PR description (tested commit, counts, AC-to-test table, failing-test and implementation commits) and, from Lab 5, in the CI run on that PR. Earlier per-feature output files are in git history (sprint README §5, DoD 1.1).

@@ -1,6 +1,6 @@
 # F-01 Authentication and Authorization Foundation: Engineering Contract
 
-Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.2 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
+Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.4 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -66,7 +66,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 - **Login Screen (`/login`)**: Email and password inputs; "Log in" button disabled while request is pending. Failure shows generic banner: "Invalid email or password".
 - **App Shell**: Top bar with brand logo, role-based navigation links, authenticated user's name, and "Log out" button.
-- **Route Guard**: Unauthenticated visitor redirected to `/login`; unauthorized role shows "Not permitted" page; API 401 triggers redirection to `/login` with notification "Your session has expired".
+- **Route Guard**: Unauthenticated visitor redirected to `/login`; a User attempting to access an Administrator page sees the "Not permitted" page; an Administrator accessing a User page (such as `/`) is redirected to `/admin/users`; API 401 triggers redirection to `/login`.
 
 ### 2.3 Data
 
@@ -119,7 +119,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 ## 5. Definition of done (F-01)
 
-- Every AC above **except AC-01.9** has at least one automated test executed on the release commit, with results documented in [evidence/f-01/](evidence/f-01/) (`npm-test.txt`, `e2e.txt`, `coverage.txt`, `lint.txt`). AC-01.9 is verified by TEST-07.4 in F-07 (v1.1), so **F-01 is Done only once TEST-07.4 passes**.
-- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12. **Disclosure (v1.2):** the original F-01 commit added tests and implementation together, so no red-to-green commit history exists. In its place, [evidence/f-01/](evidence/f-01/) records retroactive mutation checks (`failing-first-TEST-01.x.txt`): the behavior is removed, the named test is shown failing, the code is restored, and the test passes again. Later features record genuine failing-test commits.
+- Every AC above **except AC-01.9** has at least one automated test executed on the release commit, with results recorded as the Product DoD in [README.md](README.md) §4 requires (v1.3). AC-01.9 is verified by TEST-07.4 in F-07 (v1.1), so **F-01 is Done only once TEST-07.4 passes**.
+- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12. **Disclosure (v1.2):** the original F-01 commit added tests and implementation together, so no red-to-green commit history exists. In its place, retroactive mutation checks were recorded: the behavior is removed, the named test is shown failing, the code is restored, and the test passes again. Their output is in commit `90a00dd` (`docs/sprints/sprint-1/evidence/f-01/failing-first-TEST-01.x.txt`, removed from the working tree in v1.3; read with `git show 90a00dd:<path>`). Later features record genuine failing-test commits.
 - Product Definition of Done in [README.md](README.md) is met.
 

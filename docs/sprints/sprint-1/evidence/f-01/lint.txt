@@ -1,9 +1,0 @@
-# F-01 evidence: ESLint, zero warnings allowed (DoD §4)
-# Command : npx eslint . --max-warnings=0
-# Commit  : 40f41f6684f0c731a80cfc1b05aaf02d429783df (style(web): update wordmark logo text)
-# Tree    : clean for code; uncommitted non-code files: .github/pull_request_template.md, docs/sprints/sprint-1/evidence/README.md
-# Date    : 2026-11-10 22:04:17 (Asia/Bangkok)
-# Node    : v24.19.0
-# Result  : exit code 0
-# No output below means no errors and no warnings.
-

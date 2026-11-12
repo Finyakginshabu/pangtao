@@ -5,7 +5,13 @@ import { prisma } from '../../server/src/prisma.js';
 import { resetDatabase, createTestSession } from '../helpers/db.helper.js';
 import { clearRateLimitStore } from '../../server/src/middleware/rate-limit.middleware.js';
 import { computeBalances } from '../../server/src/services/balance.engine.js';
-import { insertDemoLedger, insertRandomLedger, loadLedger } from '../helpers/ledger.helper.js';
+import {
+  accountIdsByName,
+  insertDemoLedger,
+  insertRandomLedger,
+  insertTransaction,
+  loadLedger,
+} from '../helpers/ledger.helper.js';
 
 const ACCOUNTS_URL = '/api/v1/accounts';
 const ACCOUNT_FIELDS = ['balance', 'id', 'isArchived', 'name', 'openingBalance', 'subtype', 'type'];
@@ -69,6 +75,45 @@ describe('F-03 Accounts and Balances (STS)', () => {
     expect(bobIds).toHaveLength(9);
     expect(items.map((a) => a.id).sort()).toEqual([...aliceIds].sort());
     expect(items.some((a) => bobIds.includes(a.id))).toBe(false);
+  });
+
+  describe('F-03 account listing: further rules', () => {
+    it('orders accounts by type then name, with Loan Given between Loan Taken and Income', async () => {
+      await prisma.account.create({
+        data: { userId: seededUsers.alice.id, name: 'Loan to Carol', type: 'LOAN_GIVEN' },
+      });
+
+      const res = await getAccounts(aliceToken);
+      expect(res.status).toBe(200);
+      expect((res.body.items as AccountItem[]).map((a) => [a.type, a.name])).toEqual([
+        ['CASH', 'Bank Account'],
+        ['CASH', 'Wallet'],
+        ['LOAN_TAKEN', 'Credit Card'],
+        ['LOAN_GIVEN', 'Loan to Carol'],
+        ['INCOME', 'Interest Earned'],
+        ['INCOME', 'Salary'],
+        ['EXPENSE', 'Dining'],
+        ['EXPENSE', 'Electricity'],
+        ['EXPENSE', 'Groceries'],
+        ['EXPENSE', 'Telecom'],
+      ]);
+    });
+
+    it('keeps openingBalance null on Income and Expense accounts even if a stray row exists', async () => {
+      const ids = await accountIdsByName(seededUsers.alice.id);
+      await insertTransaction(seededUsers.alice.id, {
+        kind: 'OPENING_BALANCE',
+        accountId: ids['Salary'],
+        date: '2026-01-01',
+        total: 500_000,
+      });
+
+      const res = await getAccounts(aliceToken);
+      expect(res.status).toBe(200);
+      const accounts = byName(res.body.items);
+      expect(accounts['Salary'].openingBalance).toBeNull();
+      expect(accounts['Salary'].balance).toBe(0);
+    });
   });
 
   it('TEST-03.2 (AC-03.2): anonymous gets 401 UNAUTHENTICATED and Admin gets 403 FORBIDDEN with no account data', async () => {
