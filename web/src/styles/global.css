@@ -399,6 +399,11 @@ body {
 
   .pt-app-nav {
     margin-right: 0;
+    gap: 0.5rem;
+  }
+
+  .pt-nav-link {
+    font-size: 0.8rem;
   }
 
   .pt-app-user {

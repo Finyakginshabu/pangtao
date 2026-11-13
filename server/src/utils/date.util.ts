@@ -35,6 +35,26 @@ export function isFutureDate(
   return date > todayInTimeZone(timeZone, now);
 }
 
+/**
+ * The first and last calendar day of the month containing `now` in `timeZone`
+ * (f-08 §2.1, AC-08.8). `to` is the month's last day, not today, so a request
+ * without bounds covers the whole current month.
+ */
+export function currentMonthRange(
+  timeZone: string = DEFAULT_TIME_ZONE,
+  now: Date = new Date()
+): { from: string; to: string } {
+  const today = todayInTimeZone(timeZone, now);
+  const [year, month] = today.split('-').map(Number);
+  // Day 0 of the following month is the last day of this one (handles leap years).
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return {
+    from: `${year}-${pad(month)}-01`,
+    to: `${year}-${pad(month)}-${pad(lastDay)}`,
+  };
+}
+
 /** True only for a real calendar day: `2026-02-30` and `2026-13-01` are rejected. */
 export function isRealCalendarDate(date: string): boolean {
   if (!DATE_PATTERN.test(date)) return false;
