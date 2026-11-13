@@ -62,3 +62,11 @@ export function checkPaymentAccounts(source: RuleAccount, targets: readonly Rule
     }
   });
 }
+
+/**
+ * BR-14, BR-16, BR-06: the receiving account must be an active Cash account, and each
+ * line target (in line order) must be active, differ from the source, and be Income.
+ */
+export function checkReceiptAccounts(_source: RuleAccount, _targets: readonly RuleAccount[]): void {
+  // Not implemented yet (F-06 red step).
+}
