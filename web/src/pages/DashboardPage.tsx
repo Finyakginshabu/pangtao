@@ -6,6 +6,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { OpeningBalanceDialog } from '../components/OpeningBalanceDialog';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
+import { transactionsQueryKey } from '../api/transactions.api';
 import { errorCode, errorMessage } from '../api/http';
 import { Account, AccountType, OpeningBalanceTransaction } from '../types/account.types';
 import { formatSatang } from '../utils/money';
@@ -234,6 +235,7 @@ export const DashboardPage: React.FC = () => {
     );
     setOpeningAccount(null);
     void queryClient.invalidateQueries({ queryKey: accountsQueryKey });
+    void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
   };
 
   return (

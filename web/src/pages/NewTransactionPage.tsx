@@ -5,7 +5,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { useAuth } from '../context/AuthContext';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
-import { createTransaction } from '../api/transactions.api';
+import { createTransaction, transactionsQueryKey } from '../api/transactions.api';
 import { errorCode, errorMessage } from '../api/http';
 import { Account, AccountType } from '../types/account.types';
 import { ApiErrorResponse } from '../types/auth.types';
@@ -186,6 +186,7 @@ export const NewTransactionPage: React.FC = () => {
     mutationFn: (input: CreateTransactionInput) => createTransaction(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
       navigate('/');
     },
     onError: async (error) => {

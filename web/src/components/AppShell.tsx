@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { colors } from '../styles/theme';
 
 interface AppShellProps {
@@ -58,6 +58,18 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </h1>
           <span className="pt-app-header-subtitle" style={{ fontSize: '0.875rem', color: colors.parchment, opacity: 0.8 }}>Personal Ledger</span>
         </div>
+
+        {/* On narrow screens the nav shares the logo's line, so the header keeps its height (NFR-08). */}
+        {user?.role === 'USER' && (
+          <nav aria-label="Main" className="pt-app-nav">
+            <NavLink to="/" end data-testid="nav-dashboard" className="pt-nav-link">
+              Dashboard
+            </NavLink>
+            <NavLink to="/transactions" end data-testid="nav-history" className="pt-nav-link">
+              History
+            </NavLink>
+          </nav>
+        )}
 
         {user && (
           <div className="pt-app-user" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
