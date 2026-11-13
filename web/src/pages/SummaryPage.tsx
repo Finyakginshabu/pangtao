@@ -7,7 +7,7 @@ import { fetchSummary, summaryQueryKey } from '../api/summary.api';
 import { errorCode, errorMessage } from '../api/http';
 import { formatSatang, formatSignedSatang } from '../utils/money';
 import { formatCalendarDate, monthRange } from '../utils/date';
-import { colors, font, radius, shadow, space } from '../styles/theme';
+import { colors, font, radius, space } from '../styles/theme';
 
 type Preset = 'this-month' | 'last-month' | 'custom';
 
@@ -23,10 +23,7 @@ const EXPENSE_COLOR = '#A34A1F';
 const NEGATIVE_COLOR = '#8B2525';
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: colors.surfaceSolid,
-  border: `1px solid ${colors.border}`,
   borderRadius: radius.xl,
-  boxShadow: shadow.card,
   padding: space[5],
   minWidth: 0,
 };
@@ -69,7 +66,7 @@ const MetricCard: React.FC<{ label: string; value: string; testId: string; accen
   testId,
   accent,
 }) => (
-  <div data-testid={`${testId}-card`} style={cardStyle}>
+  <div data-testid={`${testId}-card`} className="pt-card" style={cardStyle}>
     <span
       style={{
         display: 'block',
@@ -111,7 +108,7 @@ const SummarySkeleton: React.FC = () => (
       { testId: 'summary-expense', width: '55%' },
       { testId: 'summary-net', width: '65%' },
     ].map((item) => (
-      <div key={item.testId} data-testid={item.testId} style={cardStyle}>
+      <div key={item.testId} data-testid={item.testId} className="pt-card" style={cardStyle}>
         <span style={{ ...skeletonBar, width: '45%' }} />
         <span style={{ ...skeletonBar, width: item.width, height: '1.6rem', marginTop: space[2] }} />
       </div>
@@ -186,7 +183,7 @@ export const SummaryPage: React.FC = () => {
           </p>
         </div>
 
-        <section aria-label="Date range" style={{ ...cardStyle, marginBottom: space[4] }}>
+        <section aria-label="Date range" className="pt-card" style={{ ...cardStyle, marginBottom: space[4] }}>
           <div
             role="group"
             aria-label="Date range presets"

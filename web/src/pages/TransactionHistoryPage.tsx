@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Icon } from '../components/Icon';
 import { TransactionKindBadge } from '../components/TransactionKindBadge';
 import { useAuth } from '../context/AuthContext';
 import { fetchTransactions, transactionsQueryKey } from '../api/transactions.api';
@@ -10,17 +11,14 @@ import { errorCode, errorMessage } from '../api/http';
 import { HistoryTransaction } from '../types/transaction.types';
 import { formatSatang } from '../utils/money';
 import { formatCalendarDate } from '../utils/date';
-import { colors, font, radius, shadow, space } from '../styles/theme';
+import { colors, font, radius, space } from '../styles/theme';
 
 /** f-07 §1: default page size 50, server maximum 100. */
 const PAGE_SIZES = [25, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 50;
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: colors.surfaceSolid,
-  border: `1px solid ${colors.border}`,
   borderRadius: radius.xl,
-  boxShadow: shadow.card,
   padding: `${space[2]} ${space[5]}`,
 };
 
@@ -43,6 +41,9 @@ const linkButton: React.CSSProperties = {
 };
 
 const pagerButton: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: space[1],
   padding: '0.35rem 0.8rem',
   borderRadius: radius.md,
   border: `1px solid ${colors.parchment}`,
@@ -196,15 +197,9 @@ export const TransactionHistoryPage: React.FC = () => {
           </div>
           <Link
             to="/transactions/new"
-            style={{
-              padding: '0.45rem 0.9rem',
-              borderRadius: radius.md,
-              backgroundColor: colors.cobalt,
-              color: colors.porcelain,
-              fontWeight: font.weight.semibold,
-              textDecoration: 'none',
-            }}
+            className="pt-btn-primary"
           >
+            <Icon name="add" size={1.125} />
             Record transaction
           </Link>
         </div>
@@ -216,7 +211,7 @@ export const TransactionHistoryPage: React.FC = () => {
           />
         )}
 
-        <section aria-label="Transactions" style={cardStyle}>
+        <section aria-label="Transactions" className="pt-card" style={cardStyle}>
           {showSkeleton ? (
             <HistorySkeleton />
           ) : historyQuery.isError ? null : page && page.total === 0 ? (
@@ -271,6 +266,7 @@ export const TransactionHistoryPage: React.FC = () => {
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 style={{ ...pagerButton, opacity: offset === 0 ? 0.5 : 1 }}
               >
+                <Icon name="chevron_left" size={1.125} />
                 Previous
               </button>
               <button
@@ -281,6 +277,7 @@ export const TransactionHistoryPage: React.FC = () => {
                 style={{ ...pagerButton, opacity: lastShown >= page.total ? 0.5 : 1 }}
               >
                 Next
+                <Icon name="chevron_right" size={1.125} />
               </button>
             </div>
           </nav>

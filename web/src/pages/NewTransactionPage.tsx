@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
 import { createTransaction, transactionsQueryKey } from '../api/transactions.api';
@@ -13,7 +14,7 @@ import { ApiErrorResponse } from '../types/auth.types';
 import { CreateTransactionInput } from '../types/transaction.types';
 import { formatSatang, parseThbToSatang } from '../utils/money';
 import { bangkokToday, isFutureDate } from '../utils/date';
-import { colors, font, radius, shadow, space } from '../styles/theme';
+import { colors, font, radius, space } from '../styles/theme';
 
 /** BR-04: 100,000,000.00 THB in integer satang. */
 const MAX_AMOUNT_SATANG = 10_000_000_000;
@@ -109,10 +110,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: colors.surfaceSolid,
-  border: `1px solid ${colors.border}`,
   borderRadius: radius.xl,
-  boxShadow: shadow.card,
   padding: space[5],
   minWidth: 0,
 };
@@ -141,7 +139,7 @@ const FieldError: React.FC<{ id: string; message?: string }> = ({ id, message })
   ) : null;
 
 const FormSkeleton: React.FC = () => (
-  <div data-testid="transaction-form-skeleton" role="status" aria-live="polite" aria-label="Loading accounts" style={cardStyle}>
+  <div data-testid="transaction-form-skeleton" role="status" aria-live="polite" aria-label="Loading accounts" className="pt-card" style={cardStyle}>
     {[60, 85, 70].map((width) => (
       <span
         key={width}
@@ -304,8 +302,13 @@ export const NewTransactionPage: React.FC = () => {
     <AppShell>
       <div style={{ maxWidth: '760px', margin: '0 auto' }}>
         <p style={{ margin: 0, marginBottom: space[2], fontSize: font.size.sm }}>
-          <Link to="/" style={{ color: colors.textSecondary }}>
-            ← Back to dashboard
+          <Link
+            to="/"
+            className="pt-icon-link"
+            style={{ color: colors.textSecondary, display: 'inline-flex', alignItems: 'center', gap: space[1] }}
+          >
+            <Icon name="arrow_back" size={1.125} />
+            <span>Back to dashboard</span>
           </Link>
         </p>
         <h2 style={{ fontSize: font.size['2xl'], fontWeight: font.weight.semibold, color: colors.textPrimary, marginBottom: space[4] }}>
@@ -345,14 +348,14 @@ export const NewTransactionPage: React.FC = () => {
         {accountsQuery.isPending || (accountsQuery.isError && accountsQuery.isFetching) ? (
           <FormSkeleton />
         ) : accountsQuery.isSuccess && sources.length === 0 ? (
-          <div data-testid="transaction-form-empty" style={cardStyle}>
+          <div data-testid="transaction-form-empty" className="pt-card" style={cardStyle}>
             <p style={{ margin: 0, color: colors.textSecondary }}>
               {config.emptyMessage} <Link to="/">Return to the dashboard</Link>.
             </p>
           </div>
         ) : accountsQuery.isSuccess ? (
           <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
-            <section style={cardStyle} aria-label={config.detailsLabel}>
+            <section className="pt-card" style={cardStyle} aria-label={config.detailsLabel}>
               <div style={fieldGrid}>
                 <div>
                   <label htmlFor={`${testIdPrefix}-source`} style={labelStyle}>
@@ -446,7 +449,7 @@ export const NewTransactionPage: React.FC = () => {
               </div>
             </section>
 
-            <section style={cardStyle} aria-labelledby="lines-heading">
+            <section className="pt-card" style={cardStyle} aria-labelledby="lines-heading">
               <h3 id="lines-heading" style={{ marginTop: 0, marginBottom: space[4], fontSize: font.size.lg, color: colors.textPrimary }}>
                 Allocation lines
               </h3>
@@ -545,8 +548,9 @@ export const NewTransactionPage: React.FC = () => {
                               clearErrors();
                               setLines((current) => current.filter((l) => l.key !== line.key));
                             }}
-                            style={secondaryButton}
+                            style={{ ...secondaryButton, display: 'inline-flex', alignItems: 'center', gap: space[1] }}
                           >
+                            <Icon name="delete" size={1.125} />
                             Remove
                           </button>
                         </div>
@@ -563,9 +567,10 @@ export const NewTransactionPage: React.FC = () => {
                   clearErrors();
                   setLines((current) => [...current, newLine()]);
                 }}
-                style={{ ...secondaryButton, marginTop: space[4] }}
+                style={{ ...secondaryButton, marginTop: space[4], display: 'inline-flex', alignItems: 'center', gap: space[1] }}
               >
-                + Add line
+                <Icon name="add" size={1.125} />
+                Add line
               </button>
               <FieldError id="lines-error" message={fieldErrors.lines} />
             </section>
@@ -574,7 +579,7 @@ export const NewTransactionPage: React.FC = () => {
               aria-label="Allocation summary"
               aria-live="polite"
               data-testid="allocation-summary"
-              style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: space[3] }}
+              className="pt-card" style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: space[3] }}
             >
               {[
                 { label: 'Total', value: totalSatang ?? 0, testId: 'summary-total' },
@@ -612,16 +617,9 @@ export const NewTransactionPage: React.FC = () => {
                 type="submit"
                 data-testid={`${testIdPrefix}-submit`}
                 disabled={!canSubmit}
-                style={{
-                  padding: '0.45rem 0.9rem',
-                  borderRadius: radius.md,
-                  border: 'none',
-                  backgroundColor: colors.cobalt,
-                  color: colors.porcelain,
-                  fontWeight: font.weight.semibold,
-                  cursor: canSubmit ? 'pointer' : 'not-allowed',
-                  opacity: canSubmit ? 1 : 0.55,
-                }}
+                className="pt-btn-primary"
+                // Same width for "Save payment" and "Save receipt" (and "Saving…"), so the button never resizes.
+                style={{ minWidth: '9.5rem' }}
               >
                 {mutation.isPending ? 'Saving…' : config.submitLabel}
               </button>

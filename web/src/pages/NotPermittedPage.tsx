@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppShell } from '../components/AppShell';
+import { Icon } from '../components/Icon';
 import { useNavigate } from 'react-router-dom';
 
 export const NotPermittedPage: React.FC = () => {
@@ -16,16 +17,9 @@ export const NotPermittedPage: React.FC = () => {
         </p>
         <button
           onClick={() => navigate('/')}
-          style={{
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '0.375rem',
-            padding: '0.5rem 1rem',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
+          className="pt-btn-primary"
         >
+          <Icon name="home" size={1.125} />
           Return to Dashboard
         </button>
       </div>

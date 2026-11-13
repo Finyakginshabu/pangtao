@@ -145,6 +145,109 @@ body {
   box-shadow: var(--shadow-glass-card);
 }
 
+/* ── 4b-2. App cards (dashboard, history, summary, forms) ────────────── */
+/* Same glass as the login card but more opaque, so figures keep steady contrast. */
+.pt-card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-glass-card);
+}
+
+/* Modal dialogs: the card outline and shadow on an opaque surface. */
+.pt-card-solid {
+  background: var(--surface-solid);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-glass-card);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .pt-card {
+    background: rgba(255, 255, 255, 0.94);
+  }
+}
+
+/* Page-level glow behind every signed-in screen: one pair, fixed, never intercepts clicks. */
+.pt-page-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pt-page-orb-1,
+.pt-page-orb-2 {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.pt-page-orb-1 {
+  width: 460px;
+  height: 460px;
+  top: -120px;
+  left: -140px;
+  background: radial-gradient(circle, rgba(46, 74, 103, 0.24) 0%, rgba(244, 240, 232, 0) 70%);
+  filter: blur(40px);
+}
+
+.pt-page-orb-2 {
+  width: 520px;
+  height: 520px;
+  bottom: -160px;
+  right: -140px;
+  background: radial-gradient(circle, rgba(184, 148, 91, 0.30) 0%, rgba(244, 240, 232, 0) 70%);
+  filter: blur(38px);
+}
+
+/* Card header and list rows of the dashboard cards (tightened on phones below). */
+.pt-section-head {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-parchment);
+}
+
+.pt-section-row {
+  padding: 0.75rem 1.25rem;
+}
+
+/* Small outlined action inside a list row (e.g. "Set opening balance"). */
+.pt-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.6rem 0.1rem 0.4rem;
+  border: 1px solid var(--color-parchment);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--color-cobalt);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.pt-pill-btn:hover {
+  background: #eaf0f7;
+  border-color: var(--color-cobalt);
+}
+
+/* Three summary figures side by side; stacked rows on phones. */
+.pt-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pt-stat {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.pt-stat + .pt-stat {
+  border-left: 1px solid var(--color-parchment);
+}
+
 /* ── 4c. Glass inputs ───────────────────────────────────────────────── */
 .pt-glass-input {
   display: block;
@@ -255,6 +358,38 @@ body {
   cursor: not-allowed;
 }
 
+/* Primary action button: the login button's look, sized to its content, no hover effect. */
+.pt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.45rem 1.125rem;
+  font-family: var(--font-family);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  text-decoration: none;
+  color: var(--color-porcelain);
+  background: linear-gradient(
+    135deg,
+    rgba(46, 74, 103, 0.92) 0%,
+    rgba(15, 30, 51, 0.95) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+}
+
+.pt-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ── 4e. Role badge (AppShell) ──────────────────────────────────────── */
 .pt-role-badge {
   display: inline-block;
@@ -283,12 +418,25 @@ body {
 }
 
 /* ── 4g2. Header navigation (F-07) ─────────────────────────────────── */
+.pt-app-header {
+  column-gap: 1rem;
+}
+
 .pt-app-nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-left: auto;
-  margin-right: 1.5rem;
+  gap: 1.25rem;
+  margin-left: 1.5rem;
+}
+
+/* A link with an icon: only the label is underlined, never the icon. */
+.pt-icon-link {
+  text-decoration: none;
+}
+
+.pt-icon-link > span:not(.material-symbols-outlined) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .pt-nav-link {
@@ -317,13 +465,111 @@ body {
   border-collapse: collapse;
 }
 
-.pt-status-badge {
-  display: inline-block;
+.pt-admin-table th {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.2rem 0.55rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #5a6b80;
+  background: rgba(244, 240, 232, 0.55);
+  border-bottom: 1px solid var(--color-parchment);
+}
+
+.pt-admin-table td {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--color-midnight);
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(216, 206, 190, 0.6);
+}
+
+.pt-admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pt-admin-table tbody tr:hover {
+  background: rgba(46, 74, 103, 0.04);
+}
+
+.pt-cell-muted {
+  color: #4a5d73 !important;
+}
+
+.pt-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.pt-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: #eaf0f7;
+  color: var(--color-cobalt);
+  border: 1px solid rgba(46, 74, 103, 0.18);
+}
+
+.pt-avatar--admin {
+  background: #f6ecdc;
+  color: #8f5a0e;
+  border-color: rgba(143, 90, 14, 0.25);
+}
+
+.pt-you-badge {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  background: #eaf0f7;
+  color: var(--color-cobalt);
+  vertical-align: middle;
+}
+
+.pt-role-pill {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border-radius: var(--radius-full);
+  background: #eaf0f7;
+  color: var(--color-cobalt);
+}
+
+.pt-role-pill--admin {
+  background: #f6ecdc;
+  color: #8f5a0e;
+}
+
+.pt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem 0.2rem 0.55rem;
   border-radius: var(--radius-full);
   border: 1px solid transparent;
+}
+
+.pt-status-badge::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .pt-status-badge--active {
@@ -338,9 +584,75 @@ body {
   color: #8B2525;
 }
 
+.pt-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.8rem 0.3rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.pt-action-btn--danger {
+  color: #8B2525;
+  border-color: #E5A8A8;
+  background: #FBEAEA;
+}
+
+.pt-action-btn--ok {
+  color: #1F5C42;
+  border-color: #9CCDB6;
+  background: #E7F4EE;
+}
+
+.pt-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* At 360 px the table becomes a stack of labelled rows instead of a
    horizontally scrolling grid, so every action stays reachable. */
 @media (max-width: 640px) {
+  /* Secondary page text that the title and content already convey (keeps NFR-08 screens compact). */
+  .pt-hide-on-mobile {
+    display: none !important;
+  }
+
+  /* Phones: no blur (cheaper to paint), a little more opaque, smaller glows. */
+  .pt-section-head {
+    padding: 0.75rem 1rem;
+  }
+
+  .pt-section-row {
+    padding: 0.625rem 1rem;
+  }
+
+  .pt-stat-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pt-stat + .pt-stat {
+    border-left: none;
+    border-top: 1px solid var(--color-parchment);
+  }
+
+  .pt-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .pt-page-orb-1,
+  .pt-page-orb-2 {
+    width: 280px;
+    height: 280px;
+  }
+
   .pt-admin-table thead {
     display: none;
   }
@@ -377,7 +689,7 @@ body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: rgba(46, 74, 103, 0.6);
+    color: #5a6b80;
   }
 }
 
@@ -393,12 +705,8 @@ body {
     gap: 0.5rem !important;
   }
 
-  .pt-app-header-subtitle {
-    display: none;
-  }
-
   .pt-app-nav {
-    margin-right: 0;
+    margin-left: 0;
     gap: 0.5rem;
   }
 

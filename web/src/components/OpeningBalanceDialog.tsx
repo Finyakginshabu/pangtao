@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Account, OpeningBalanceTransaction } from '../types/account.types';
 import { parseThbToSatang } from '../utils/money';
 import { bangkokToday, isFutureDate } from '../utils/date';
-import { colors, font, radius, shadow, space, zIndex } from '../styles/theme';
+import { colors, font, radius, space, zIndex } from '../styles/theme';
 
 interface OpeningBalanceDialogProps {
   account: Account;
@@ -108,6 +108,7 @@ export const OpeningBalanceDialog: React.FC<OpeningBalanceDialogProps> = ({
     >
       <div
         role="dialog"
+        className="pt-card-solid"
         aria-modal="true"
         aria-labelledby="opening-balance-title"
         data-testid="opening-balance-dialog"
@@ -116,9 +117,7 @@ export const OpeningBalanceDialog: React.FC<OpeningBalanceDialogProps> = ({
           maxWidth: '440px',
           maxHeight: 'calc(100vh - 2rem)',
           overflowY: 'auto',
-          backgroundColor: colors.surfaceSolid,
           borderRadius: radius.xl,
-          boxShadow: shadow.card,
           padding: space[6],
         }}
         onClick={(event) => event.stopPropagation()}
@@ -213,16 +212,7 @@ export const OpeningBalanceDialog: React.FC<OpeningBalanceDialogProps> = ({
               type="submit"
               data-testid="opening-balance-save"
               disabled={isSaving}
-              style={{
-                padding: '0.45rem 0.9rem',
-                borderRadius: radius.md,
-                border: 'none',
-                backgroundColor: colors.cobalt,
-                color: colors.porcelain,
-                fontWeight: font.weight.semibold,
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                opacity: isSaving ? 0.7 : 1,
-              }}
+              className="pt-btn-primary"
             >
               {isSaving ? 'Saving…' : 'Save opening balance'}
             </button>

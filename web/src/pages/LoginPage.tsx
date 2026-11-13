@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Icon } from '../components/Icon';
 import { ApiErrorResponse } from '../types/auth.types';
 import { colors, radius, zIndex } from '../styles/theme';
 
@@ -143,7 +144,7 @@ export const LoginPage: React.FC = () => {
               />
             </h1>
             <p style={{ color: colors.cobalt, margin: 0, fontSize: '0.875rem', lineHeight: 1.45, opacity: 0.75 }}>
-              Sign in to your Pangtao account
+              Log in to your Pangtao account
             </p>
           </div>
 
@@ -249,9 +250,7 @@ export const LoginPage: React.FC = () => {
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  <Icon name={showPassword ? 'visibility_off' : 'visibility'} />
                 </button>
               </div>
               <div className="pt-field-error-slot">
@@ -266,7 +265,7 @@ export const LoginPage: React.FC = () => {
             {/* Submit */}
             <div style={{ paddingTop: '0.625rem' }}>
               <button type="submit" className="pt-glass-btn" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing in…' : 'Sign in'}
+                {isSubmitting ? 'Logging in…' : 'Log in'}
               </button>
             </div>
           </form>
