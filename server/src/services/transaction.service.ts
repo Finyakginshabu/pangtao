@@ -2,7 +2,7 @@ import { prisma } from '../prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { satangToJson } from '../utils/money.util.js';
 import { isFutureDate } from '../utils/date.util.js';
-import { checkAllocationSum, checkPaymentAccounts, RuleAccount } from './allocation.rules.js';
+import { checkAllocationSum, checkPaymentAccounts, checkReceiptAccounts, RuleAccount } from './allocation.rules.js';
 import type { CreateTransactionBodyDto } from '../schemas/transaction.schema.js';
 
 export interface AllocationLineView {
@@ -13,10 +13,10 @@ export interface AllocationLineView {
   note: string | null;
 }
 
-/** f-05 §2.1: `{ id, kind, accountId, txnDate, totalAmount, memo, lines }`. */
+/** f-05 §2.1 / f-06 §2.1: `{ id, kind, accountId, txnDate, totalAmount, memo, lines }`. */
 export interface TransactionView {
   id: string;
-  kind: 'PAYMENT';
+  kind: 'PAYMENT' | 'RECEIPT';
   accountId: string;
   /** YYYY-MM-DD */
   txnDate: string;
@@ -30,9 +30,10 @@ const ACCOUNT_RULE_FIELDS = { id: true, type: true, isArchived: true } as const;
 
 export class TransactionService {
   /**
-   * FR-12 / BR-01, BR-04 to BR-07, BR-09, BR-10, BR-14, BR-16: record one Payment.
-   * Ownership is checked first, so another user's account looks like an unknown one (404).
-   * Every rule and both inserts run in one database transaction, so a rejected request writes nothing.
+   * FR-12 / FR-13 / BR-01, BR-04 to BR-07, BR-09, BR-10, BR-14, BR-16: record one Payment
+   * or Receipt. Ownership is checked first, so another user's account looks like an unknown
+   * one (404). Every rule and both inserts run in one database transaction, so a rejected
+   * request writes nothing.
    */
   async createTransaction(dto: CreateTransactionBodyDto, userId: string): Promise<TransactionView> {
     return prisma.$transaction(async (tx) => {
@@ -54,10 +55,12 @@ export class TransactionService {
         throw new AppError(404, 'NOT_FOUND', 'Account not found');
       }
 
-      checkPaymentAccounts(
-        source,
-        dto.lines.map((line) => byId.get(line.targetAccountId)!)
-      );
+      const targets = dto.lines.map((line) => byId.get(line.targetAccountId)!);
+      if (dto.kind === 'PAYMENT') {
+        checkPaymentAccounts(source, targets);
+      } else {
+        checkReceiptAccounts(source, targets);
+      }
 
       if (isFutureDate(dto.txnDate)) {
         throw new AppError(400, 'FUTURE_DATE_NOT_ALLOWED', 'Date cannot be later than today in Bangkok time', [
@@ -73,7 +76,7 @@ export class TransactionService {
       const transaction = await tx.transaction.create({
         data: {
           userId,
-          kind: 'PAYMENT',
+          kind: dto.kind,
           accountId: source.id,
           // DATE column: store the calendar day at UTC midnight, like every other ledger row.
           txnDate: new Date(`${dto.txnDate}T00:00:00.000Z`),
@@ -103,7 +106,7 @@ export class TransactionService {
 
       return {
         id: transaction.id,
-        kind: 'PAYMENT' as const,
+        kind: dto.kind,
         accountId: transaction.accountId,
         txnDate: transaction.txnDate.toISOString().slice(0, 10),
         totalAmount: satangToJson(transaction.totalAmount),

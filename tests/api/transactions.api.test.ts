@@ -388,7 +388,7 @@ describe('F-05 Payment and Charge (STS)', () => {
       expect(await aliceRows()).toEqual({ transactions: 0, lines: 0 });
     });
 
-    it('rejects a non-JSON body with 415, and unknown fields, malformed ids or dates and RECEIPT with 400', async () => {
+    it('rejects a non-JSON body with 415, and unknown fields, malformed ids or dates and an unknown kind with 400', async () => {
       const notJson = await asAlice(TRANSACTIONS_URL).set('Content-Type', 'text/plain').send('kind=PAYMENT');
       expect(notJson.status).toBe(415);
       expect(notJson.body.error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
@@ -406,7 +406,7 @@ describe('F-05 Payment and Charge (STS)', () => {
         ['impossible date', payment({ ...valid, txnDate: '2026-02-30' })],
         ['string amount', { ...payment(valid), totalAmount: '10000' }],
         ['missing lines', { kind: 'PAYMENT', txnDate: DATE, accountId: valid.accountId, totalAmount: 10_000 }],
-        ['RECEIPT (F-06)', { ...payment(valid), kind: 'RECEIPT' }],
+        ['unknown kind', { ...payment(valid), kind: 'TRANSFER' }],
       ];
       for (const [label, body] of invalidBodies) {
         const res = await asAlice(TRANSACTIONS_URL).send(body);
