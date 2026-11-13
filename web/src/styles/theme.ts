@@ -25,7 +25,7 @@ export const colors = {
   // Semantic aliases
   textPrimary: '#0F1E33',
   textSecondary: '#2E4A67',
-  textMuted: 'rgba(46, 74, 103, 0.6)',
+  textMuted: '#5A6B80',
   border: 'rgba(216, 206, 190, 0.75)',
   borderFocus: '#2E4A67',
   pageBg: '#F4F0E8',

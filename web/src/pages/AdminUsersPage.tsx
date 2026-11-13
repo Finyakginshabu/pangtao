@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { fetchUsers, updateUserStatus } from '../api/admin.api';
 import { AdminUser } from '../types/admin.types';
 import { ApiErrorResponse } from '../types/auth.types';
-import { colors, font, radius, shadow, space, zIndex } from '../styles/theme';
+import { colors, font, radius, space, zIndex } from '../styles/theme';
 
 const PAGE_LIMIT = 50;
 const SKELETON_ROWS = 4;
@@ -24,46 +25,16 @@ function formatDate(value: string): string {
 }
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: colors.surfaceSolid,
-  border: `1px solid ${colors.border}`,
   borderRadius: radius.xl,
-  boxShadow: shadow.card,
   overflow: 'hidden',
 };
 
-const thStyle: React.CSSProperties = {
-  textAlign: 'left',
-  padding: `${space[3]} ${space[4]}`,
-  fontSize: font.size.xs,
-  fontWeight: font.weight.semibold,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: colors.textMuted,
-  borderBottom: `1px solid ${colors.border}`,
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: `${space[3]} ${space[4]}`,
-  fontSize: font.size.sm,
-  color: colors.textPrimary,
-  borderBottom: `1px solid ${colors.border}`,
-  verticalAlign: 'middle',
-};
-
-function actionButtonStyle(enable: boolean, disabled: boolean): React.CSSProperties {
-  return {
-    padding: '0.35rem 0.85rem',
-    borderRadius: radius.md,
-    border: `1px solid ${enable ? '#2F7D5B' : '#A94444'}`,
-    backgroundColor: enable ? '#E7F4EE' : '#FBEAEA',
-    color: enable ? '#1F5C42' : '#8B2525',
-    fontWeight: font.weight.semibold,
-    fontSize: font.size.xs,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.55 : 1,
-    whiteSpace: 'nowrap',
-  };
+/** "System Admin" → "SA", "Alice User" → "AU", "Bob" → "B". */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
+  return (first + last).toUpperCase() || '?';
 }
 
 const skeletonBar: React.CSSProperties = {
@@ -75,7 +46,7 @@ const skeletonBar: React.CSSProperties = {
 
 const SkeletonTable: React.FC = () => (
   <div data-testid="admin-users-skeleton" role="status" aria-live="polite" aria-label="Loading users">
-    <div style={{ ...cardStyle, padding: space[4] }}>
+    <div className="pt-card" style={{ ...cardStyle, padding: space[4] }}>
       {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
         <div
           key={index}
@@ -111,6 +82,7 @@ export const AdminUsersPage: React.FC = () => {
   const [pending, setPending] = useState<PendingChange | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const activeCount = users.filter((item) => item.isActive).length;
 
   useEffect(() => {
     let active = true;
@@ -187,7 +159,7 @@ export const AdminUsersPage: React.FC = () => {
         <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
           User Account Administration
         </h2>
-        <p style={{ color: '#64748b', marginBottom: '2rem' }}>
+        <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>
           Manage platform users and access activation.
         </p>
 
@@ -198,74 +170,104 @@ export const AdminUsersPage: React.FC = () => {
         ) : loadError ? null : users.length === 0 ? (
           <div
             data-testid="admin-users-empty"
-            style={{ ...cardStyle, padding: space[8], textAlign: 'center', color: colors.textMuted }}
+            className="pt-card" style={{ ...cardStyle, padding: space[8], textAlign: 'center', color: colors.textMuted }}
           >
             No users found.
           </div>
         ) : (
-          <div className="pt-admin-table-wrap" style={cardStyle}>
-            <table className="pt-admin-table" aria-label="Platform users">
-              <thead>
-                <tr>
-                  <th scope="col" style={thStyle}>Name</th>
-                  <th scope="col" style={thStyle}>Email</th>
-                  <th scope="col" style={thStyle}>Role</th>
-                  <th scope="col" style={thStyle}>Status</th>
-                  <th scope="col" style={thStyle}>Created</th>
-                  <th scope="col" style={thStyle}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((item) => {
-                  const isSelf = currentUser?.id === item.id;
-                  return (
-                    <tr key={item.id} data-testid={`user-row-${item.email}`}>
-                      <td data-label="Name" style={tdStyle}>
-                        <span style={{ fontWeight: font.weight.medium }}>{item.displayName}</span>
-                        {isSelf && (
-                          <span style={{ marginLeft: space[2], color: colors.textMuted, fontSize: font.size.xs }}>
-                            (you)
+          <div className="pt-card" style={cardStyle}>
+            <div
+              className="pt-section-head"
+              style={{ display: 'flex', alignItems: 'center', gap: space[3] }}
+            >
+              <span style={{ display: 'inline-flex', color: colors.cobalt }}>
+                <Icon name="group" size={1.75} />
+              </span>
+              <div>
+                <h3 style={{ fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.textPrimary, margin: 0, lineHeight: 1.25 }}>
+                  All users
+                </h3>
+                <p style={{ fontSize: font.size.xs, color: colors.textMuted, margin: 0 }}>
+                  {users.length} total · {activeCount} active · {users.length - activeCount} disabled
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-admin-table-wrap">
+              <table className="pt-admin-table" aria-label="Platform users">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((item) => {
+                    const isSelf = currentUser?.id === item.id;
+                    const isAdmin = item.role === 'ADMIN';
+                    return (
+                      <tr key={item.id} data-testid={`user-row-${item.email}`}>
+                        <td data-label="Name">
+                          <span className="pt-user-cell">
+                            <span className={`pt-avatar${isAdmin ? ' pt-avatar--admin' : ''}`} aria-hidden="true">
+                              {initials(item.displayName)}
+                            </span>
+                            <span style={{ fontWeight: font.weight.semibold, minWidth: 0 }}>
+                              {item.displayName}
+                              {isSelf && <span className="pt-you-badge">You</span>}
+                            </span>
                           </span>
-                        )}
-                      </td>
-                      <td data-label="Email" style={tdStyle}>{item.email}</td>
-                      <td data-label="Role" style={tdStyle}>{item.role}</td>
-                      <td data-label="Status" style={tdStyle}>
-                        <span
-                          data-testid={`user-status-${item.email}`}
-                          className={`pt-status-badge ${item.isActive ? 'pt-status-badge--active' : 'pt-status-badge--disabled'}`}
-                        >
-                          {item.isActive ? 'Active' : 'Disabled'}
-                        </span>
-                      </td>
-                      <td data-label="Created" style={tdStyle}>{formatDate(item.createdAt)}</td>
-                      <td data-label="Action" style={tdStyle}>
-                        <span
-                          title={isSelf ? 'You cannot disable your own account' : undefined}
-                          style={{ display: 'inline-block' }}
-                        >
-                          <button
-                            type="button"
-                            data-testid={`toggle-${item.email}`}
-                            disabled={isSelf}
-                            title={isSelf ? 'You cannot disable your own account' : undefined}
-                            aria-label={
-                              isSelf
-                                ? 'You cannot disable your own account'
-                                : `${item.isActive ? 'Disable' : 'Enable'} ${item.displayName}`
-                            }
-                            onClick={() => openConfirm(item)}
-                            style={actionButtonStyle(!item.isActive, isSelf)}
+                        </td>
+                        <td data-label="Email" className="pt-cell-muted">
+                          {item.email}
+                        </td>
+                        <td data-label="Role">
+                          <span className={`pt-role-pill${isAdmin ? ' pt-role-pill--admin' : ''}`}>{item.role}</span>
+                        </td>
+                        <td data-label="Status">
+                          <span
+                            data-testid={`user-status-${item.email}`}
+                            className={`pt-status-badge ${item.isActive ? 'pt-status-badge--active' : 'pt-status-badge--disabled'}`}
                           >
-                            {item.isActive ? 'Disable' : 'Enable'}
-                          </button>
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {item.isActive ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td data-label="Created" className="pt-cell-muted" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                          {formatDate(item.createdAt)}
+                        </td>
+                        <td data-label="Action">
+                          <span
+                            title={isSelf ? 'You cannot disable your own account' : undefined}
+                            style={{ display: 'inline-block' }}
+                          >
+                            <button
+                              type="button"
+                              data-testid={`toggle-${item.email}`}
+                              className={`pt-action-btn ${item.isActive ? 'pt-action-btn--danger' : 'pt-action-btn--ok'}`}
+                              disabled={isSelf}
+                              title={isSelf ? 'You cannot disable your own account' : undefined}
+                              aria-label={
+                                isSelf
+                                  ? 'You cannot disable your own account'
+                                  : `${item.isActive ? 'Disable' : 'Enable'} ${item.displayName}`
+                              }
+                              onClick={() => openConfirm(item)}
+                            >
+                              <Icon name={item.isActive ? 'block' : 'check_circle'} size={1} />
+                              {item.isActive ? 'Disable' : 'Enable'}
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -287,14 +289,13 @@ export const AdminUsersPage: React.FC = () => {
         >
           <div
             role="dialog"
+            className="pt-card-solid"
             aria-modal="true"
             aria-labelledby="confirm-title"
             style={{
               width: '100%',
               maxWidth: '420px',
-              backgroundColor: colors.surfaceSolid,
               borderRadius: radius.xl,
-              boxShadow: shadow.card,
               padding: space[6],
             }}
             onClick={(event) => event.stopPropagation()}
@@ -304,7 +305,7 @@ export const AdminUsersPage: React.FC = () => {
             </h3>
             <p style={{ marginTop: 0, marginBottom: space[5], color: colors.textSecondary, fontSize: font.size.sm }}>
               {pending.nextActive
-                ? 'They will be able to sign in and start a new session again.'
+                ? 'They will be able to log in and start a new session again.'
                 : 'This immediately signs them out of every active session and blocks further logins.'}
             </p>
 
@@ -336,16 +337,7 @@ export const AdminUsersPage: React.FC = () => {
                 data-testid="confirm-status-change"
                 onClick={() => void confirmStatusChange()}
                 disabled={isSaving}
-                style={{
-                  padding: '0.45rem 0.9rem',
-                  borderRadius: radius.md,
-                  border: 'none',
-                  backgroundColor: colors.cobalt,
-                  color: colors.porcelain,
-                  fontWeight: font.weight.semibold,
-                  cursor: isSaving ? 'not-allowed' : 'pointer',
-                  opacity: isSaving ? 0.7 : 1,
-                }}
+                className="pt-btn-primary"
               >
                 {isSaving ? 'Saving…' : 'Confirm'}
               </button>

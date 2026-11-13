@@ -3,19 +3,17 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Icon } from '../components/Icon';
 import { TransactionKindBadge } from '../components/TransactionKindBadge';
 import { useAuth } from '../context/AuthContext';
 import { fetchTransaction, transactionsQueryKey } from '../api/transactions.api';
 import { errorCode, errorMessage } from '../api/http';
 import { formatSatang } from '../utils/money';
 import { formatCalendarDate } from '../utils/date';
-import { colors, font, radius, shadow, space } from '../styles/theme';
+import { colors, font, radius, space } from '../styles/theme';
 
 const cardStyle: React.CSSProperties = {
-  backgroundColor: colors.surfaceSolid,
-  border: `1px solid ${colors.border}`,
   borderRadius: radius.xl,
-  boxShadow: shadow.card,
   padding: space[5],
   display: 'flex',
   flexDirection: 'column',
@@ -66,8 +64,13 @@ export const TransactionDetailPage: React.FC = () => {
   return (
     <AppShell>
       <div>
-        <Link to="/transactions" style={{ color: colors.cobalt, fontSize: font.size.sm }}>
-          ← Back to history
+        <Link
+          to="/transactions"
+          className="pt-icon-link"
+          style={{ color: colors.cobalt, fontSize: font.size.sm, display: 'inline-flex', alignItems: 'center', gap: space[1] }}
+        >
+          <Icon name="arrow_back" size={1.125} />
+          <span>Back to history</span>
         </Link>
         <h2 style={{ fontSize: font.size['2xl'], fontWeight: font.weight.semibold, color: colors.textPrimary, margin: `${space[3]} 0 ${space[6]}` }}>
           Transaction detail
@@ -81,17 +84,17 @@ export const TransactionDetailPage: React.FC = () => {
         )}
 
         {detailQuery.isPending || detailQuery.isFetching ? (
-          <div role="status" aria-label="Loading transaction" style={cardStyle}>
+          <div role="status" aria-label="Loading transaction" className="pt-card" style={cardStyle}>
             <span style={{ ...skeletonBar, width: '35%', height: '1.1rem' }} />
             <span style={{ ...skeletonBar, width: '60%' }} />
             <span style={{ ...skeletonBar, width: '50%' }} />
           </div>
         ) : notFound ? (
-          <div data-testid="transaction-not-found" style={cardStyle}>
+          <div data-testid="transaction-not-found" className="pt-card" style={cardStyle}>
             <p style={{ margin: 0, color: colors.textSecondary }}>Transaction not found.</p>
           </div>
         ) : transaction ? (
-          <section data-testid="transaction-detail" style={cardStyle}>
+          <section data-testid="transaction-detail" className="pt-card" style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: space[3], flexWrap: 'wrap' }}>
               <TransactionKindBadge kind={transaction.kind} />
               <span style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, fontVariantNumeric: 'tabular-nums' }}>
