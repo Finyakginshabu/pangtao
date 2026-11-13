@@ -38,7 +38,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | BR-03 | F-02 | 1 | AC-02.x · A |
 | BR-04 | F-04, F-05, F-06 | 1 | AC-04.x, 05.x, 06.x · U, A |
 | BR-05 | F-05, F-06 | 1 | AC-05.x, 06.x · U, A |
-| BR-06 | F-05, F-06 (subset); F-10, F-11 (rest) | 1, 2 | AC-05.x, 06.x · U, A; extended in Sprint 2 |
+| BR-06 | F-05, F-06 (subset); F-10, F-11 (rest) | 1, 2 | AC-05.x (incl. AC-05.6, AC-05.13), 06.x · U, A; extended in Sprint 2 |
 | BR-07 | F-03, F-05, F-06 | 1 | AC-03.x, 05.x, 06.x · U, A |
 | BR-08 | F-08 | 1 | AC-08.x · U, A |
 | BR-09 | F-05, F-08 | 1 | AC-05.x, 08.x · A, E |
@@ -46,7 +46,7 @@ AC and test IDs follow the convention AC-NN.k and TEST-NN.k, where NN is the fea
 | BR-11 | F-04, F-12 | 1, 2 | AC-04.x · A; management in Sprint 2 |
 | BR-12 | F-13 | 2 | Contract in Sprint 2 · A |
 | BR-13 | F-02 | 1 | AC-02.x · A |
-| BR-14 | F-04 (archived rule), F-09 (lifecycle) | 1, 2 | AC-04.10 · A, E; lifecycle in Sprint 2 |
+| BR-14 | F-04, F-05, F-06 (archived rule), F-09 (lifecycle) | 1, 2 | AC-04.10 · A, E; AC-05.12 / TEST-05.12 · A (archived source); AC-05.13 · U, A (archived target, BR-06); F-06 archived receiving account: AC with implementation; lifecycle in Sprint 2 |
 | BR-15 | F-15 | 3 | Contract in Sprint 3 · A |
 | BR-16 | F-05, F-06 | 1 | AC-05.10, AC-06.4 / TEST-05.10, TEST-06.4 · A |
 | NFR-01 | F-01 | 1 | AC-01.x · A |
@@ -77,7 +77,7 @@ All assumptions and decisions (A-01–A-04, D-01–D-07) are fully resolved and 
 
 Actual tests and results for every Sprint 1 acceptance criterion. Automated test names start with their test ID, for example `TEST-03.3 (AC-03.3): …`, so each row can be found by searching the file for the ID.
 
-**Tested version:** `sprint-1-staging` at commit `cec8b61` (merge of PR #12), 12 Nov 2026, plus this documentation and verification commit on `docs/sprint-1-align-contracts` (its head commit is recorded in the PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 44 passed, 0 failed, 0 skipped, service-layer line coverage 98.41%, build succeeded, `npx playwright test` 4 passed, 0 failed, 0 skipped (TEST-02.4 end-to-end added). **F-04:** branch `feature/F-04-opening-balance`, failing-first commit `f03c53a`, implementation commit `d831c3d`, UI/E2E/traceability commit `1fa5afa`, review failing-first commit `968d5f9`, plus the review-fix commit at this PR's head (recorded in the F-04 PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 61 passed, 0 failed, 0 skipped, service-layer line coverage 98.13% (`opening-balance.service.ts` 97.05%), build succeeded, `npx playwright test` 7 passed, 0 failed, 0 skipped (the extra F-04 spec covers the §2.2 dialog at desktop and 360 px, the archived-row rule and the expired-session redirect; it is not part of the contract STS). Update this table and the tested version whenever a feature merges into staging.
+**Tested version:** `sprint-1-staging` at commit `cec8b61` (merge of PR #12), 12 Nov 2026, plus this documentation and verification commit on `docs/sprint-1-align-contracts` (its head commit is recorded in the PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 44 passed, 0 failed, 0 skipped, service-layer line coverage 98.41%, build succeeded, `npx playwright test` 4 passed, 0 failed, 0 skipped (TEST-02.4 end-to-end added). **F-04:** branch `feature/F-04-opening-balance`, failing-first commit `f03c53a`, implementation commit `d831c3d`, UI/E2E/traceability commit `1fa5afa`, review failing-first commit `968d5f9`, plus the review-fix commit at this PR's head (recorded in the F-04 PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 61 passed, 0 failed, 0 skipped, service-layer line coverage 98.13% (`opening-balance.service.ts` 97.05%), build succeeded, `npx playwright test` 7 passed, 0 failed, 0 skipped (the extra F-04 spec covers the §2.2 dialog at desktop and 360 px, the archived-row rule and the expired-session redirect; it is not part of the contract STS). **F-05:** branch `feature/F-05-payment-charge`, contract 1.2 commit `1645b2d`, failing-first commit `f3b0a32`, implementation commit at this PR's head (recorded in the F-05 PR description per DoD 1.1). Commands: `npm run verify` on that tree: lint and type-check clean, `npm test` 82 passed, 0 failed, 0 skipped, service-layer line coverage 98.62% (`transaction.service.ts` and `allocation.rules.ts` 100%), build succeeded, `npx playwright test` 9 passed, 0 failed, 0 skipped. On Windows the E2E run was made with `TEMP`/`TMP` outside `%TEMP%`, because Playwright otherwise stalls deleting the browser profile after the tests pass (all specs; fixed separately on `chore/playwright-temp-dir`). Update this table and the tested version whenever a feature merges into staging.
 
 | AC | Test | Level | Actual test file | Result |
 |---|---|---|---|---|
@@ -101,8 +101,17 @@ Actual tests and results for every Sprint 1 acceptance criterion. Automated test
 | AC-04.6 | TEST-04.6 | U, A | `tests/unit/opening-balance.test.ts` and `tests/api/opening-balance.api.test.ts` | PASS at both levels |
 | AC-04.7 to AC-04.9 | TEST-04.7 to TEST-04.9 | A | `tests/api/opening-balance.api.test.ts` | PASS |
 | AC-04.10 | TEST-04.10 | A, E | `tests/api/opening-balance.api.test.ts` and `tests/e2e/opening-balance.spec.ts` | PASS at both levels; failing-first `968d5f9` |
-| AC-05.x to AC-08.x | TEST-05.x to TEST-08.x | per contract | Not written yet | NOT IMPLEMENTED (F-05 to F-08) |
+| AC-05.1 to AC-05.3 | TEST-05.1 to TEST-05.3 | A | `tests/api/transactions.api.test.ts` | PASS |
+| AC-05.4 | TEST-05.4 | U, A | `tests/unit/allocation.rules.test.ts` and `tests/api/transactions.api.test.ts` | PASS at both levels; failing-first `f3b0a32` |
+| AC-05.5 | TEST-05.5 | A | `tests/api/transactions.api.test.ts` | PASS |
+| AC-05.6 | TEST-05.6 | A | `tests/api/transactions.api.test.ts` | PASS; failing-first `f3b0a32` |
+| AC-05.7, AC-05.8 | TEST-05.7, TEST-05.8 | A | `tests/api/transactions.api.test.ts` | PASS |
+| AC-05.9 | TEST-05.9 | E | `tests/e2e/transactions.spec.ts` | PASS |
+| AC-05.10, AC-05.11 | TEST-05.10, TEST-05.11 | A | `tests/api/transactions.api.test.ts` | PASS |
+| AC-05.12 | TEST-05.12 | A | `tests/api/transactions.api.test.ts` | PASS; failing-first `f3b0a32` |
+| AC-05.13 | TEST-05.13 | U, A | `tests/unit/allocation.rules.test.ts` and `tests/api/transactions.api.test.ts` | PASS at both levels |
+| AC-06.x to AC-08.x | TEST-06.x to TEST-08.x | per contract | Not written yet | NOT IMPLEMENTED (F-06 to F-08) |
 
-**Status by feature:** F-01, F-02, F-03 and F-04 are implemented (F-04 is on `feature/F-04-opening-balance`, pending merge into `sprint-1-staging`). F-01 is not Done until TEST-07.4 passes (AC-01.9). F-05 to F-08 are not started. Nothing is released on `main` yet.
+**Status by feature:** F-01 to F-04 are implemented and merged into `sprint-1-staging`. F-05 is implemented on `feature/F-05-payment-charge`, pending merge. F-01 is not Done until TEST-07.4 passes (AC-01.9). F-06 to F-08 are not started. Nothing is released on `main` yet.
 
 **Where results are recorded:** in each feature PR description (tested commit, counts, AC-to-test table, failing-test and implementation commits) and, from Lab 5, in the CI run on that PR. Earlier per-feature output files are in git history (sprint README §5, DoD 1.1).

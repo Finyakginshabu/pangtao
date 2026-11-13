@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -264,6 +265,24 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
         ) : null}
+
+        {/* f-05 §2.2 entry point; below the cards so the balance overview stays first on small screens. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: space[6] }}>
+          <Link
+            to="/transactions/new"
+            data-testid="record-payment-link"
+            style={{
+              padding: '0.45rem 0.9rem',
+              borderRadius: radius.md,
+              backgroundColor: colors.cobalt,
+              color: colors.porcelain,
+              fontWeight: font.weight.semibold,
+              textDecoration: 'none',
+            }}
+          >
+            Record payment
+          </Link>
+        </div>
       </div>
 
       {openingAccount && (

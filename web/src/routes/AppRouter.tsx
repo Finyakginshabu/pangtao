@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
+import { NewTransactionPage } from '../pages/NewTransactionPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRouter: React.FC = () => {
@@ -14,6 +15,14 @@ export const AppRouter: React.FC = () => {
         element={
           <ProtectedRoute allowedRole="USER">
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/transactions/new"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <NewTransactionPage />
           </ProtectedRoute>
         }
       />

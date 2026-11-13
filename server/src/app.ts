@@ -9,6 +9,7 @@ import { access, assertRoutesGuarded, mountRouter } from './middleware/route-gua
 import { authRouter } from './routes/auth.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { accountsRouter } from './routes/accounts.routes.js';
+import { transactionsRouter } from './routes/transactions.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { testRouter } from './routes/test.routes.js';
 
@@ -55,6 +56,7 @@ export function createApp(options: AppOptions = {}) {
   mountRouter(app, '/api/v1/auth', authRouter);
   mountRouter(app, '/api/v1/admin', adminRouter);
   mountRouter(app, '/api/v1/accounts', accountsRouter);
+  mountRouter(app, '/api/v1/transactions', transactionsRouter);
   if (enableTestRoutes) {
     mountRouter(app, '/api/v1/test', testRouter);
   }
