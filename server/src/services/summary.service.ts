@@ -26,16 +26,20 @@ interface TotalsRow {
  * non-voided allocation lines, filtered by the target account type (BR-08, BR-09).
  * Opening balances have no allocation lines; Cash and Loan targets are excluded by
  * the CASE expressions. SUM is cast to BIGINT, otherwise Postgres returns NUMERIC.
+ *
+ * The scan starts from `transactions` so it can use the existing
+ * `(user_id, txn_date)` index; `allocation_lines` has no user_id index, but its
+ * `(transaction_id, line_no)` unique index serves the join.
  */
 function totalsQuery(userId: string, from: string, to: string) {
   return Prisma.sql`
     SELECT
       COALESCE(SUM(CASE WHEN a.type = 'INCOME' THEN l.amount ELSE 0 END), 0)::bigint AS income,
       COALESCE(SUM(CASE WHEN a.type = 'EXPENSE' THEN l.amount ELSE 0 END), 0)::bigint AS expense
-    FROM allocation_lines l
-    JOIN transactions t ON t.id = l.transaction_id AND t.user_id = l.user_id
-    JOIN accounts a ON a.id = l.target_account_id AND a.user_id = l.user_id
-    WHERE l.user_id = ${userId}::uuid
+    FROM transactions t
+    JOIN allocation_lines l ON l.transaction_id = t.id AND l.user_id = t.user_id
+    JOIN accounts a ON a.id = l.target_account_id AND a.user_id = t.user_id
+    WHERE t.user_id = ${userId}::uuid
       AND t.voided_at IS NULL
       AND t.txn_date >= ${from}::date
       AND t.txn_date <= ${to}::date

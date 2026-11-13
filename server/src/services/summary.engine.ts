@@ -6,8 +6,8 @@
  * Opening balances carry no allocation lines, so they never contribute. Transfers,
  * borrowing, lending and loan repayments target Cash or Loan accounts, so filtering by
  * the target account type excludes them by construction. Voided transactions are ignored
- * (BR-12). The production path is the SQL aggregation in summary.service.ts; the API
- * tests prove the two agree.
+ * (BR-12). The production path is the SQL aggregation in summary.service.ts; the extra
+ * API test "the pure engine and the SQL aggregation agree..." runs both over one ledger.
  */
 import type { LedgerAccount, LedgerTransaction } from './balance.engine.js';
 

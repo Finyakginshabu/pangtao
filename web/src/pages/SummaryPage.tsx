@@ -122,21 +122,39 @@ const SummarySkeleton: React.FC = () => (
 export const SummaryPage: React.FC = () => {
   const { refetchUser } = useAuth();
   const [preset, setPreset] = useState<Preset>('this-month');
-  const [thisMonth] = useState(() => monthRange());
-  const [lastMonth] = useState(() => monthRange(new Date(), -1));
-  const [customFrom, setCustomFrom] = useState(thisMonth.from);
-  const [customTo, setCustomTo] = useState(thisMonth.to);
+  // Presets are resolved when picked, so a page left open across midnight/month-end
+  // still asks for the current month (f-08 §2.2).
+  const [presetRange, setPresetRange] = useState(() => monthRange());
+  const [customRange, setCustomRange] = useState(() => monthRange());
 
-  const range =
-    preset === 'this-month'
-      ? thisMonth
-      : preset === 'last-month'
-        ? lastMonth
-        : { from: customFrom, to: customTo };
+  const range = preset === 'custom' ? customRange : presetRange;
+  const customComplete = customRange.from !== '' && customRange.to !== '';
+  const rangeValid = preset !== 'custom' || (customComplete && customRange.from <= customRange.to);
+  const rangeError =
+    preset !== 'custom'
+      ? null
+      : !customComplete
+        ? 'Choose both a start and an end date.'
+        : customRange.from > customRange.to
+          ? 'The start date must be on or before the end date.'
+          : null;
+
+  const selectPreset = (key: Preset) => {
+    setPreset(key);
+    if (key === 'this-month') {
+      setPresetRange(monthRange());
+    } else if (key === 'last-month') {
+      setPresetRange(monthRange(new Date(), -1));
+    } else {
+      setCustomRange(monthRange());
+    }
+  };
 
   const summaryQuery = useQuery({
     queryKey: [...summaryQueryKey, range.from, range.to],
     queryFn: () => fetchSummary(range.from, range.to),
+    // Empty or reversed custom ranges are validated inline and never sent to the server.
+    enabled: rangeValid,
   });
 
   // An expired session re-checks the user, and the route guard then sends them to /login.
@@ -146,7 +164,8 @@ export const SummaryPage: React.FC = () => {
   }, [unauthenticated, refetchUser]);
 
   const summary = summaryQuery.data;
-  const showSkeleton = summaryQuery.isPending || (summaryQuery.isError && summaryQuery.isFetching);
+  const showSkeleton =
+    rangeValid && (summaryQuery.isPending || (summaryQuery.isError && summaryQuery.isFetching));
 
   return (
     <AppShell>
@@ -179,7 +198,7 @@ export const SummaryPage: React.FC = () => {
                 type="button"
                 data-testid={`summary-preset-${key}`}
                 aria-pressed={preset === key}
-                onClick={() => setPreset(key)}
+                onClick={() => selectPreset(key)}
                 style={presetButton(preset === key)}
               >
                 {label}
@@ -201,8 +220,10 @@ export const SummaryPage: React.FC = () => {
                 <input
                   type="date"
                   data-testid="summary-range-from"
-                  value={customFrom}
-                  onChange={(event) => setCustomFrom(event.target.value)}
+                  value={customRange.from}
+                  onChange={(event) =>
+                    setCustomRange((current) => ({ ...current, from: event.target.value }))
+                  }
                   style={dateInputStyle}
                 />
               </label>
@@ -218,23 +239,42 @@ export const SummaryPage: React.FC = () => {
                 <input
                   type="date"
                   data-testid="summary-range-to"
-                  value={customTo}
-                  onChange={(event) => setCustomTo(event.target.value)}
+                  value={customRange.to}
+                  onChange={(event) =>
+                    setCustomRange((current) => ({ ...current, to: event.target.value }))
+                  }
                   style={dateInputStyle}
                 />
               </label>
             </div>
           )}
 
+          {rangeError && (
+            <p
+              data-testid="summary-range-error"
+              role="status"
+              style={{
+                margin: `${space[2]} 0 0`,
+                fontSize: font.size.sm,
+                fontWeight: font.weight.medium,
+                color: NEGATIVE_COLOR,
+              }}
+            >
+              {rangeError}
+            </p>
+          )}
+
           <p
             data-testid="summary-range-label"
             style={{ margin: `${space[3]} 0 0`, fontSize: font.size.sm, color: colors.textMuted }}
           >
-            {formatCalendarDate(range.from)} – {formatCalendarDate(range.to)}
+            {rangeValid
+              ? `${formatCalendarDate(range.from)} – ${formatCalendarDate(range.to)}`
+              : 'No date range selected'}
           </p>
         </section>
 
-        {summaryQuery.isError && !summaryQuery.isFetching && (
+        {rangeValid && summaryQuery.isError && !summaryQuery.isFetching && (
           <ErrorBanner
             message={errorMessage(summaryQuery.error, 'Unable to load your summary. Please try again.')}
             onRetry={() => void summaryQuery.refetch()}
@@ -243,7 +283,7 @@ export const SummaryPage: React.FC = () => {
 
         {showSkeleton ? (
           <SummarySkeleton />
-        ) : summary ? (
+        ) : rangeValid && summary ? (
           <section
             aria-label="Summary totals"
             style={{

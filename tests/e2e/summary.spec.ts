@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
+import { monthRange } from '../../web/src/utils/date';
 
 // AC-01.10: the seed password comes from the local .env, never from source.
 const SEED_PASSWORD = process.env.SEED_DEFAULT_PASSWORD;
@@ -28,26 +29,10 @@ async function clearAliceLedger(): Promise<void> {
 }
 
 /**
- * The previous Bangkok month. It is always in the past, so the API's BR-10
- * future-date rule accepts the fixture on any run day.
+ * The previous Bangkok month, from the same helper the UI uses. It is always in the
+ * past, so the API's BR-10 future-date rule accepts the fixture on any run day.
  */
-function previousMonth(): { from: string; to: string } {
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const [year, month] = today.split('-').map(Number);
-  const shifted = new Date(Date.UTC(year, month - 2, 1));
-  const y = shifted.getUTCFullYear();
-  const m = shifted.getUTCMonth() + 1;
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return { from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(lastDay)}` };
-}
-
-const PREVIOUS_MONTH = previousMonth();
+const PREVIOUS_MONTH = monthRange(new Date(), -1);
 /** `1` → the previous month's 1st, `3` → its 3rd, as YYYY-MM-DD. */
 const dayOfPreviousMonth = (day: number) =>
   `${PREVIOUS_MONTH.from.slice(0, 8)}${String(day).padStart(2, '0')}`;
@@ -180,5 +165,74 @@ test.describe('F-08 Income and Expense Summary (STS)', () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );
     expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test('the dashboard shows the current-month summary widget and links to /summary (f-08 §1 step 1)', async ({
+    page,
+  }) => {
+    await loginAsAlice(page);
+
+    const widget = page.getByTestId('dashboard-summary');
+    await expect(widget).toBeVisible();
+    await expect(page.getByTestId('dashboard-summary-income')).toHaveText('0.00 ฿');
+    await expect(page.getByTestId('dashboard-summary-expense')).toHaveText('0.00 ฿');
+    await expect(page.getByTestId('dashboard-summary-net')).toHaveText('0.00 ฿');
+
+    await page.getByTestId('dashboard-summary-link').click();
+    await expect(page).toHaveURL(/\/summary$/);
+  });
+
+  test('a new payment refreshes the dashboard widget and the summary figures', async ({ page }) => {
+    await loginAsAlice(page);
+
+    // Prime the summary cache with the empty current month.
+    await page.goto('/summary');
+    await expect(page.getByTestId('summary-expense')).toHaveText('0.00 ฿');
+
+    await page.getByTestId('nav-dashboard').click();
+    await expect(page.getByTestId('dashboard-summary-expense')).toHaveText('0.00 ฿');
+
+    await page.getByTestId('record-payment-link').click();
+    await page.getByTestId('payment-source').selectOption({ label: 'Bank Account' });
+    await page.getByTestId('payment-total').fill('10.00');
+    await page.getByTestId('line-target-0').selectOption({ label: 'Dining' });
+    await page.getByTestId('line-amount-0').fill('10.00');
+    await page.getByTestId('payment-submit').click();
+
+    // The mutation invalidates summaryQueryKey before navigating back to the Dashboard.
+    await expect(page).toHaveURL(/^http:\/\/localhost:3000\/?$/);
+    await expect(page.getByTestId('dashboard-summary-expense')).toHaveText('10.00 ฿');
+    await expect(page.getByTestId('dashboard-summary-net')).toHaveText('-10.00 ฿');
+
+    await page.getByTestId('nav-summary').click();
+    await expect(page.getByTestId('summary-expense')).toHaveText('10.00 ฿');
+    await expect(page.getByTestId('summary-net')).toHaveText('-10.00 ฿');
+  });
+
+  test('custom ranges are validated inline and never sent when incomplete or reversed (f-08 §2.2)', async ({
+    page,
+  }) => {
+    await loginAsAlice(page);
+    await page.goto('/summary');
+    await page.getByTestId('summary-preset-custom').click();
+
+    const from = page.getByTestId('summary-range-from');
+    const to = page.getByTestId('summary-range-to');
+    const error = page.getByTestId('summary-range-error');
+
+    await from.fill('');
+    await expect(error).toHaveText('Choose both a start and an end date.');
+    await expect(page.getByTestId('summary-range-label')).toHaveText('No date range selected');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+
+    await from.fill(dayOfPreviousMonth(5));
+    await to.fill(dayOfPreviousMonth(3));
+    await expect(error).toHaveText('The start date must be on or before the end date.');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+
+    // A valid custom range clears the error and loads totals.
+    await to.fill(dayOfPreviousMonth(6));
+    await expect(error).toHaveCount(0);
+    await expect(page.getByTestId('summary-net')).toBeVisible();
   });
 });

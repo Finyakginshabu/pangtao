@@ -5,6 +5,8 @@ import { prisma } from '../../server/src/prisma.js';
 import { resetDatabase, createTestSession } from '../helpers/db.helper.js';
 import { clearRateLimitStore } from '../../server/src/middleware/rate-limit.middleware.js';
 import { accountIdsByName, insertTransaction } from '../helpers/ledger.helper.js';
+import { computeIncomeExpense } from '../../server/src/services/summary.engine.js';
+import type { LedgerAccount, LedgerTransaction } from '../../server/src/services/balance.engine.js';
 
 const SUMMARY_URL = '/api/v1/summary/income-expense';
 
@@ -286,5 +288,76 @@ describe('F-08 summary API: further rules', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('the pure engine and the SQL aggregation agree on the same ledger (f-08 §2.3 parity check)', async () => {
+    // Add rows the aggregation must filter out: a voided expense and a cash transfer.
+    await insertTransaction(seededUsers.alice.id, {
+      kind: 'PAYMENT',
+      accountId: demo.ids['Bank Account'],
+      date: '2026-11-05',
+      total: 500_000,
+      voided: true,
+      lines: [{ targetAccountId: demo.ids['Telecom'], amount: 500_000 }],
+    });
+    await insertTransaction(seededUsers.alice.id, {
+      kind: 'PAYMENT',
+      accountId: demo.ids['Bank Account'],
+      date: '2026-11-06',
+      total: 20_000,
+      lines: [{ targetAccountId: demo.ids['Wallet'], amount: 20_000 }],
+    });
+
+    const res = await get(`${SUMMARY_URL}?from=2026-11-01&to=2026-11-30`, aliceToken);
+    expect(res.status).toBe(200);
+
+    const accounts = await prisma.account.findMany({
+      where: { userId: seededUsers.alice.id },
+      select: { id: true, type: true },
+    });
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        userId: seededUsers.alice.id,
+        txnDate: {
+          gte: new Date('2026-11-01T00:00:00.000Z'),
+          lte: new Date('2026-11-30T00:00:00.000Z'),
+        },
+      },
+      select: {
+        kind: true,
+        accountId: true,
+        totalAmount: true,
+        voidedAt: true,
+        lines: { select: { targetAccountId: true, amount: true } },
+      },
+    });
+
+    const ledgerAccounts: LedgerAccount[] = accounts.map((account) => ({
+      id: account.id,
+      type: account.type,
+    }));
+    const ledgerTransactions: LedgerTransaction[] = transactions.map((transaction) => ({
+      kind: transaction.kind,
+      accountId: transaction.accountId,
+      totalAmount: transaction.totalAmount,
+      voidedAt: transaction.voidedAt,
+      lines: transaction.lines.map((line) => ({
+        targetAccountId: line.targetAccountId,
+        amount: line.amount,
+      })),
+    }));
+
+    const totals = computeIncomeExpense(ledgerAccounts, ledgerTransactions);
+    expect({
+      income: Number(totals.income),
+      expense: Number(totals.expense),
+      net: Number(totals.net),
+    }).toEqual({
+      income: res.body.income,
+      expense: res.body.expense,
+      net: res.body.net,
+    });
+    // The same ledger is the contract demo, so both paths must produce its exact figures.
+    expect(res.body).toMatchObject({ income: 3_000_000, expense: 120_000, net: 2_880_000 });
   });
 });

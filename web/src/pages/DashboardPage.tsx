@@ -7,13 +7,14 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { OpeningBalanceDialog } from '../components/OpeningBalanceDialog';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
 import { transactionsQueryKey } from '../api/transactions.api';
+import { fetchSummary, summaryQueryKey } from '../api/summary.api';
 import { errorCode, errorMessage } from '../api/http';
 import { Account, AccountType, OpeningBalanceTransaction } from '../types/account.types';
-import { formatSatang } from '../utils/money';
-import { formatCalendarDate } from '../utils/date';
+import { formatSatang, formatSignedSatang } from '../utils/money';
+import { formatCalendarDate, monthRange } from '../utils/date';
 import { colors, font, radius, shadow, space } from '../styles/theme';
 
-/** f-03 §2.2: the dashboard shows these three groups; Income and Expense totals belong to the F-08 summary. */
+/** f-03 §2.2: these three account groups, plus the F-08 current-month totals widget below. */
 const SECTIONS: ReadonlyArray<{ key: string; type: AccountType; title: string; caption: string; empty: string }> = [
   {
     key: 'cash',
@@ -69,6 +70,23 @@ const skeletonBar: React.CSSProperties = {
   height: '0.85rem',
   borderRadius: radius.full,
   backgroundColor: '#E8E2D6',
+};
+
+const SUMMARY_INCOME_COLOR = '#2F6B45';
+const SUMMARY_EXPENSE_COLOR = '#A34A1F';
+const SUMMARY_NEGATIVE_COLOR = '#8B2525';
+
+const summaryLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: font.size.xs,
+  color: colors.textMuted,
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  margin: `${space[1]} 0 0`,
+  fontSize: font.size.lg,
+  fontWeight: font.weight.bold,
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const NegativeLabel: React.FC = () => (
@@ -201,6 +219,98 @@ const DashboardSkeleton: React.FC = () => (
   </div>
 );
 
+/**
+ * F-08 §1 step 1: the Dashboard also shows the current month's income, expense and net.
+ * It shares the summary query key with `/summary`, so recording a transaction refreshes both.
+ */
+const DashboardSummary: React.FC = () => {
+  const range = monthRange();
+  const summaryQuery = useQuery({
+    queryKey: [...summaryQueryKey, range.from, range.to],
+    queryFn: () => fetchSummary(range.from, range.to),
+  });
+
+  return (
+    <section
+      data-testid="dashboard-summary"
+      aria-labelledby="dashboard-summary-title"
+      style={{ ...cardStyle, marginTop: space[6] }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[3], flexWrap: 'wrap' }}>
+        <div>
+          <h3
+            id="dashboard-summary-title"
+            style={{ fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.textPrimary, margin: 0 }}
+          >
+            This month
+          </h3>
+          <p style={{ fontSize: font.size.xs, color: colors.textMuted, margin: 0 }}>
+            {formatCalendarDate(range.from)} – {formatCalendarDate(range.to)}
+          </p>
+        </div>
+        <Link
+          to="/summary"
+          data-testid="dashboard-summary-link"
+          style={{ color: colors.cobalt, fontSize: font.size.sm, fontWeight: font.weight.semibold }}
+        >
+          View summary
+        </Link>
+      </div>
+
+      {summaryQuery.isPending ? (
+        <div
+          data-testid="dashboard-summary-skeleton"
+          role="status"
+          aria-label="Loading summary"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: space[3] }}
+        >
+          {[0, 1, 2].map((index) => (
+            <span key={index} style={{ ...skeletonBar, width: '70%', height: '1.1rem' }} />
+          ))}
+        </div>
+      ) : summaryQuery.isError ? (
+        <ErrorBanner
+          message={errorMessage(summaryQuery.error, "Unable to load this month's summary. Please try again.")}
+          onRetry={() => void summaryQuery.refetch()}
+        />
+      ) : summaryQuery.data ? (
+        <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: space[3], margin: 0 }}>
+          <div>
+            <dt style={summaryLabelStyle}>Income</dt>
+            <dd
+              data-testid="dashboard-summary-income"
+              style={{ ...summaryValueStyle, color: SUMMARY_INCOME_COLOR }}
+            >
+              {formatSignedSatang(summaryQuery.data.income)}
+            </dd>
+          </div>
+          <div>
+            <dt style={summaryLabelStyle}>Expenses</dt>
+            <dd
+              data-testid="dashboard-summary-expense"
+              style={{ ...summaryValueStyle, color: SUMMARY_EXPENSE_COLOR }}
+            >
+              {formatSatang(summaryQuery.data.expense)}
+            </dd>
+          </div>
+          <div>
+            <dt style={summaryLabelStyle}>Net</dt>
+            <dd
+              data-testid="dashboard-summary-net"
+              style={{
+                ...summaryValueStyle,
+                color: summaryQuery.data.net < 0 ? SUMMARY_NEGATIVE_COLOR : SUMMARY_INCOME_COLOR,
+              }}
+            >
+              {formatSignedSatang(summaryQuery.data.net)}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+    </section>
+  );
+};
+
 export const DashboardPage: React.FC = () => {
   const { user, refetchUser } = useAuth();
   const accountsQuery = useQuery({ queryKey: accountsQueryKey, queryFn: fetchAccounts });
@@ -236,6 +346,7 @@ export const DashboardPage: React.FC = () => {
     setOpeningAccount(null);
     void queryClient.invalidateQueries({ queryKey: accountsQueryKey });
     void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    void queryClient.invalidateQueries({ queryKey: summaryQueryKey });
   };
 
   return (
@@ -267,6 +378,8 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
         ) : null}
+
+        <DashboardSummary />
 
         {/* f-05 §2.2 entry point; below the cards so the balance overview stays first on small screens. */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: space[6] }}>

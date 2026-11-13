@@ -6,6 +6,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { useAuth } from '../context/AuthContext';
 import { accountsQueryKey, fetchAccounts } from '../api/accounts.api';
 import { createTransaction, transactionsQueryKey } from '../api/transactions.api';
+import { summaryQueryKey } from '../api/summary.api';
 import { errorCode, errorMessage } from '../api/http';
 import { Account, AccountType } from '../types/account.types';
 import { ApiErrorResponse } from '../types/auth.types';
@@ -187,6 +188,7 @@ export const NewTransactionPage: React.FC = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: accountsQueryKey });
       await queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: summaryQueryKey });
       navigate('/');
     },
     onError: async (error) => {
