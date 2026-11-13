@@ -1,6 +1,6 @@
 /**
- * F-03 ledger fixtures. F-04/F-05/F-06 endpoints do not exist yet, so ledger events are
- * written straight to Postgres. Every row respects the DB constraints and composite FKs.
+ * Ledger fixtures written straight to Postgres. Voided rows have no endpoint until F-13, and
+ * fixed dates keep expected figures stable. Every row respects the DB constraints and composite FKs.
  */
 import { AccountType, TransactionKind } from '@prisma/client';
 import { prisma } from '../../server/src/prisma.js';
@@ -20,7 +20,8 @@ export interface LedgerEventInput {
   date: string; // YYYY-MM-DD
   total: number; // satang
   voided?: boolean;
-  lines?: Array<{ targetAccountId: string; amount: number }>;
+  memo?: string;
+  lines?: Array<{ targetAccountId: string; amount: number; note?: string }>;
 }
 
 export async function insertTransaction(userId: string, event: LedgerEventInput) {
@@ -35,6 +36,7 @@ export async function insertTransaction(userId: string, event: LedgerEventInput)
         txnDate: new Date(`${event.date}T00:00:00.000Z`),
         totalAmount: BigInt(event.total),
         voidedAt: event.voided ? new Date() : null,
+        memo: event.memo ?? null,
       },
     });
     await tx.allocationLine.createMany({
@@ -44,6 +46,7 @@ export async function insertTransaction(userId: string, event: LedgerEventInput)
         targetAccountId: line.targetAccountId,
         amount: BigInt(line.amount),
         lineNo: index + 1,
+        note: line.note ?? null,
       })),
     });
     return created;
@@ -65,24 +68,26 @@ export async function insertDemoLedger(userId: string) {
     date: '2026-01-01',
     total: 5_000_000, // 50,000.00 THB
   });
-  await insertTransaction(userId, {
+  const salary = await insertTransaction(userId, {
     kind: 'RECEIPT',
     accountId: ids['Bank Account'],
     date: '2026-01-25',
     total: 3_000_000, // 30,000.00 THB
+    memo: 'January salary',
     lines: [{ targetAccountId: ids['Salary'], amount: 3_000_000 }],
   });
-  await insertTransaction(userId, {
+  const cardCharge = await insertTransaction(userId, {
     kind: 'PAYMENT',
     accountId: ids['Credit Card'],
     date: '2026-01-26',
     total: 120_000, // 1,200.00 THB
+    memo: 'Dinner and groceries',
     lines: [
-      { targetAccountId: ids['Dining'], amount: 70_000 }, // 700.00 THB
+      { targetAccountId: ids['Dining'], amount: 70_000, note: 'Team dinner' }, // 700.00 THB
       { targetAccountId: ids['Groceries'], amount: 50_000 }, // 500.00 THB
     ],
   });
-  await insertTransaction(userId, {
+  const repayment = await insertTransaction(userId, {
     kind: 'PAYMENT',
     accountId: ids['Bank Account'],
     date: '2026-01-27',
@@ -98,7 +103,14 @@ export async function insertDemoLedger(userId: string) {
     lines: [{ targetAccountId: ids['Telecom'], amount: 500_000 }],
   });
 
-  return { ids, openingTransactionId: opening.id, voidedTransactionId: voided.id };
+  return {
+    ids,
+    openingTransactionId: opening.id,
+    salaryTransactionId: salary.id,
+    cardChargeTransactionId: cardCharge.id,
+    repaymentTransactionId: repayment.id,
+    voidedTransactionId: voided.id,
+  };
 }
 
 /** Bangkok calendar date (`YYYY-MM-DD`) offset by whole days from now (BR-10 uses Asia/Bangkok). */
