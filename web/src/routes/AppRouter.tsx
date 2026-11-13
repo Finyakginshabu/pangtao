@@ -4,6 +4,8 @@ import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { NewTransactionPage } from '../pages/NewTransactionPage';
+import { TransactionHistoryPage } from '../pages/TransactionHistoryPage';
+import { TransactionDetailPage } from '../pages/TransactionDetailPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRouter: React.FC = () => {
@@ -23,6 +25,22 @@ export const AppRouter: React.FC = () => {
         element={
           <ProtectedRoute allowedRole="USER">
             <NewTransactionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/transactions"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <TransactionHistoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/transactions/:id"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <TransactionDetailPage />
           </ProtectedRoute>
         }
       />

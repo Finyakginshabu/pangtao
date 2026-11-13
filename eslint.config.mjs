@@ -10,6 +10,8 @@ export default tseslint.config(
       // Dot-directories hold editor/tool configuration, not project source.
       '.*/**',
       '**/node_modules/**',
+      // Vite's dependency pre-bundle cache (generated, git-ignored).
+      '**/.vite/**',
       '**/dist/**',
       'coverage/**',
       'test-results/**',

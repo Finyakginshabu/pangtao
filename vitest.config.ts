@@ -1,6 +1,11 @@
 import { defineConfig } from 'vitest/config';
 
+// Windows: a terminal opened as `c:\…` and Vite's resolved `C:\…` paths make v8 count every
+// source file twice (once at 0%), which fails the coverage gate. Pin the root to an uppercase drive.
+const root = process.cwd().replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+
 export default defineConfig({
+  root,
   test: {
     include: ['tests/**/*.{test,spec}.ts'],
     exclude: ['tests/e2e/**/*', 'node_modules/**/*'],

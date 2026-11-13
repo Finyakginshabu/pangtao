@@ -282,6 +282,30 @@ body {
   font-size: 0.875rem;
 }
 
+/* ── 4g2. Header navigation (F-07) ─────────────────────────────────── */
+.pt-app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+  margin-right: 1.5rem;
+}
+
+.pt-nav-link {
+  color: var(--color-parchment);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding-bottom: 0.15rem;
+  border-bottom: 2px solid transparent;
+}
+
+.pt-nav-link:hover,
+.pt-nav-link.active {
+  color: var(--color-porcelain);
+  border-bottom-color: var(--color-brass);
+}
+
 /* ── 4h. Admin users table (F-02) ───────────────────────────────────── */
 .pt-admin-table-wrap {
   width: 100%;
@@ -371,6 +395,10 @@ body {
 
   .pt-app-header-subtitle {
     display: none;
+  }
+
+  .pt-app-nav {
+    margin-right: 0;
   }
 
   .pt-app-user {

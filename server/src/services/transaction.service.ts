@@ -1,9 +1,10 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { satangToJson } from '../utils/money.util.js';
 import { isFutureDate } from '../utils/date.util.js';
 import { checkAllocationSum, checkPaymentAccounts, checkReceiptAccounts, RuleAccount } from './allocation.rules.js';
-import type { CreateTransactionBodyDto } from '../schemas/transaction.schema.js';
+import type { CreateTransactionBodyDto, ListTransactionsQueryDto } from '../schemas/transaction.schema.js';
 
 export interface AllocationLineView {
   id: string;
@@ -26,7 +27,74 @@ export interface TransactionView {
   lines: AllocationLineView[];
 }
 
+/** f-07 §2.1 line: the stored line plus its target account's name. */
+export interface HistoryLineView extends AllocationLineView {
+  targetAccountName: string;
+}
+
+/** f-07 §2.1: `{ id, kind, accountId, accountName, txnDate, totalAmount, memo, lines }`. */
+export interface TransactionHistoryView {
+  id: string;
+  kind: 'PAYMENT' | 'RECEIPT' | 'OPENING_BALANCE';
+  accountId: string;
+  accountName: string;
+  /** YYYY-MM-DD */
+  txnDate: string;
+  /** Integer satang. */
+  totalAmount: number;
+  memo: string | null;
+  lines: HistoryLineView[];
+}
+
+export interface TransactionHistoryPage {
+  items: TransactionHistoryView[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 const ACCOUNT_RULE_FIELDS = { id: true, type: true, isArchived: true } as const;
+
+const HISTORY_SELECT = {
+  id: true,
+  kind: true,
+  accountId: true,
+  account: { select: { name: true } },
+  txnDate: true,
+  totalAmount: true,
+  memo: true,
+  lines: {
+    orderBy: { lineNo: 'asc' },
+    select: {
+      id: true,
+      targetAccountId: true,
+      targetAccount: { select: { name: true } },
+      amount: true,
+      note: true,
+    },
+  },
+} satisfies Prisma.TransactionSelect;
+
+type HistoryRow = Prisma.TransactionGetPayload<{ select: typeof HISTORY_SELECT }>;
+
+function toHistoryView(row: HistoryRow): TransactionHistoryView {
+  return {
+    id: row.id,
+    kind: row.kind,
+    accountId: row.accountId,
+    accountName: row.account.name,
+    txnDate: row.txnDate.toISOString().slice(0, 10),
+    totalAmount: satangToJson(row.totalAmount),
+    memo: row.memo,
+    lines: row.lines.map((line) => ({
+      id: line.id,
+      targetAccountId: line.targetAccountId,
+      targetAccountName: line.targetAccount.name,
+      amount: satangToJson(line.amount),
+      note: line.note,
+    })),
+  };
+}
 
 export class TransactionService {
   /**
@@ -119,6 +187,46 @@ export class TransactionService {
         })),
       };
     });
+  }
+
+  /**
+   * FR-17 / BR-01: one page of the user's history, newest first (`txn_date DESC, created_at
+   * DESC`, served by `transactions_user_id_txn_date_created_at_idx`), with `id DESC` as a final
+   * tie-break so offset pages never repeat or skip rows that share a date and creation time.
+   * Voided rows are left out until F-13 (f-07 1.1 §1). Count and page are read from one
+   * REPEATABLE READ snapshot so `total` matches the page.
+   */
+  async listTransactions(userId: string, query: ListTransactionsQueryDto): Promise<TransactionHistoryPage> {
+    const where = { userId, voidedAt: null } satisfies Prisma.TransactionWhereInput;
+    const [total, rows] = await prisma.$transaction(
+      [
+        prisma.transaction.count({ where }),
+        prisma.transaction.findMany({
+          where,
+          orderBy: [{ txnDate: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+          skip: query.offset,
+          take: query.limit,
+          select: HISTORY_SELECT,
+        }),
+      ],
+      { isolationLevel: 'RepeatableRead' }
+    );
+    return { items: rows.map(toHistoryView), total, limit: query.limit, offset: query.offset };
+  }
+
+  /**
+   * FR-25 / BR-01, D-03: one transaction's full detail. The lookup is scoped to the caller,
+   * so another user's id (or a voided one) is indistinguishable from an unknown id: 404.
+   */
+  async getTransaction(userId: string, id: string): Promise<TransactionHistoryView> {
+    const row = await prisma.transaction.findFirst({
+      where: { id, userId, voidedAt: null },
+      select: HISTORY_SELECT,
+    });
+    if (!row) {
+      throw new AppError(404, 'NOT_FOUND', 'Transaction not found');
+    }
+    return toHistoryView(row);
   }
 }
 

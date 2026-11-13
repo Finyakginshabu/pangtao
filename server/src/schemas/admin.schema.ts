@@ -1,20 +1,8 @@
 import { z } from 'zod';
-import { IdParamSchema } from './common.schema.js';
+import { IdParamSchema, PaginationQuerySchema } from './common.schema.js';
 
 /** GET /api/v1/admin/users — limit defaults to 50, maximum 100 (contract §2.1). */
-export const ListUsersQuerySchema = z.object({
-  limit: z.coerce
-    .number({ invalid_type_error: 'limit must be a number' })
-    .int({ message: 'limit must be an integer' })
-    .min(1, { message: 'limit must be at least 1' })
-    .max(100, { message: 'limit must be at most 100' })
-    .default(50),
-  offset: z.coerce
-    .number({ invalid_type_error: 'offset must be a number' })
-    .int({ message: 'offset must be an integer' })
-    .min(0, { message: 'offset must be at least 0' })
-    .default(0),
-});
+export const ListUsersQuerySchema = PaginationQuerySchema;
 
 /** Route parameter for PATCH /api/v1/admin/users/:id. */
 export const UserIdSchema = IdParamSchema;

@@ -45,3 +45,6 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
+
+# Vite dependency cache
+.vite/

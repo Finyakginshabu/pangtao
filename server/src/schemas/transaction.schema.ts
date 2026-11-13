@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdParamSchema, PositiveSatangSchema } from './common.schema.js';
+import { IdParamSchema, PaginationQuerySchema, PositiveSatangSchema } from './common.schema.js';
 import { isRealCalendarDate } from '../utils/date.util.js';
 
 const AllocationLineSchema = z
@@ -35,3 +35,8 @@ export const CreateTransactionBodySchema = z.discriminatedUnion('kind', [
 ]);
 
 export type CreateTransactionBodyDto = z.infer<typeof CreateTransactionBodySchema>;
+
+/** GET /api/v1/transactions?limit&offset (f-07 §1): limit 1–100 (default 50), offset ≥ 0. */
+export const ListTransactionsQuerySchema = PaginationQuerySchema;
+
+export type ListTransactionsQueryDto = z.infer<typeof ListTransactionsQuerySchema>;

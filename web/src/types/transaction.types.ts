@@ -32,3 +32,39 @@ export interface Transaction {
 export interface TransactionResponse {
   transaction: Transaction;
 }
+
+export type TransactionKind = 'PAYMENT' | 'RECEIPT' | 'OPENING_BALANCE';
+
+/** f-07 §2.1 line: amounts are integer satang. */
+export interface HistoryLine {
+  id: string;
+  targetAccountId: string;
+  targetAccountName: string;
+  amount: number;
+  note: string | null;
+}
+
+/** f-07 §2.1 history item and detail. */
+export interface HistoryTransaction {
+  id: string;
+  kind: TransactionKind;
+  accountId: string;
+  accountName: string;
+  /** YYYY-MM-DD */
+  txnDate: string;
+  /** Integer satang. */
+  totalAmount: number;
+  memo: string | null;
+  lines: HistoryLine[];
+}
+
+export interface TransactionHistoryPage {
+  items: HistoryTransaction[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TransactionDetailResponse {
+  transaction: HistoryTransaction;
+}
