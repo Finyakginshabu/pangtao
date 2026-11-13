@@ -28,3 +28,28 @@ export function formatCalendarDate(date: string): string {
     timeZone: 'UTC',
   });
 }
+
+export interface MonthRange {
+  /** First day of the month, `YYYY-MM-DD`. */
+  from: string;
+  /** Last day of the month, `YYYY-MM-DD`. */
+  to: string;
+}
+
+/**
+ * First and last calendar day of the Bangkok month containing `now`, shifted by
+ * `monthOffset` (f-08 §2.2: This Month / Last Month). Offset −1 is the previous month.
+ */
+export function monthRange(now: Date = new Date(), monthOffset = 0): MonthRange {
+  const [year, month] = bangkokToday(now).split('-').map(Number);
+  const first = new Date(Date.UTC(year, month - 1 + monthOffset, 1));
+  const shiftedYear = first.getUTCFullYear();
+  const shiftedMonth = first.getUTCMonth() + 1;
+  // Day 0 of the following month is the last day of this one (handles leap years).
+  const lastDay = new Date(Date.UTC(shiftedYear, shiftedMonth, 0)).getUTCDate();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return {
+    from: `${shiftedYear}-${pad(shiftedMonth)}-01`,
+    to: `${shiftedYear}-${pad(shiftedMonth)}-${pad(lastDay)}`,
+  };
+}

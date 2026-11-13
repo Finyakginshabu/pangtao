@@ -6,6 +6,7 @@ import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { NewTransactionPage } from '../pages/NewTransactionPage';
 import { TransactionHistoryPage } from '../pages/TransactionHistoryPage';
 import { TransactionDetailPage } from '../pages/TransactionDetailPage';
+import { SummaryPage } from '../pages/SummaryPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRouter: React.FC = () => {
@@ -41,6 +42,14 @@ export const AppRouter: React.FC = () => {
         element={
           <ProtectedRoute allowedRole="USER">
             <TransactionDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/summary"
+        element={
+          <ProtectedRoute allowedRole="USER">
+            <SummaryPage />
           </ProtectedRoute>
         }
       />

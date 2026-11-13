@@ -14,6 +14,15 @@ export function formatSatang(satang: number): string {
   return `${negative ? '-' : ''}${baht}.${satangPart} ฿`;
 }
 
+/**
+ * Display-only formatting with an explicit plus sign for positive values (f-08 §2.2):
+ * `3000000` → `+30,000.00 ฿`, `-120000` → `-1,200.00 ฿`, `0` → `0.00 ฿`.
+ */
+export function formatSignedSatang(satang: number): string {
+  const formatted = formatSatang(satang);
+  return satang > 0 ? `+${formatted}` : formatted;
+}
+
 const THB_INPUT = /^\d+(?:\.\d{1,2})?$/;
 
 /**
