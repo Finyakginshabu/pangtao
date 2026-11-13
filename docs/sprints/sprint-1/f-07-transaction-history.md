@@ -1,6 +1,6 @@
 # F-07 Transaction History: Engineering Contract
 
-Requirements: FR-17, FR-25; BR-01 · Depends on: F-05, F-06 · Contract version: 1.0 · Suggested branch: `feature/F-07-transaction-history`
+Requirements: FR-17, FR-25; BR-01 · Depends on: F-05, F-06 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-07-transaction-history`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -23,6 +23,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 - **BR-01 (Ownership Isolation)**: The transaction query filters strictly by `session.userId`. Transactions belonging to other users are never returned. Directly querying another user's transaction ID returns `404 NOT_FOUND`.
 - **Pagination**: Default limit is 50, maximum limit is 100. Offset must be $\ge 0$. Exceeding limit returns `400 VALIDATION_ERROR`.
 - **Chronological Ordering**: Transactions are ordered primarily by `txn_date DESC`, and secondarily by `created_at DESC`.
+- **Voided transactions (BR-12)**: History lists non-voided transactions only in Sprint 1, because nothing can void a transaction until F-13 (Edit and void, Sprint 2). F-13 owns BR-12 and extends this list to show voided transactions marked as voided.
 - Amounts in the API are integer satang; UI renders formatted Thai Baht.
 
 **Permissions:** User only. Administrator receives 403, anonymous receives 401.
@@ -47,7 +48,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 ### 2.3 Data
 
 - Queries `transactions` joined with `accounts` (source name) and `allocation_lines` joined with `accounts` (target name). No new tables or migrations; uses the schema defined in the System-Level SDS.
-- Supported by database index: `CREATE INDEX idx_transactions_user_date ON transactions (user_id, txn_date DESC, created_at DESC);`
+- Supported by the database index `transactions_user_id_txn_date_created_at_idx` on `transactions (user_id, txn_date DESC, created_at DESC)`, created by F-03 migration `20261111213027_accounts_ledger`.
 
 ---
 
@@ -77,6 +78,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-07.6** | AC-07.6 | E | Alice logged in with 4 transactions | Open `/transactions` in browser; click on multi-line card purchase row | History table renders 4 rows; card purchase expands to reveal Dining 700.00 ฿ and Groceries 500.00 ฿ lines. |
 | **TEST-07.7** | AC-07.5 | A | Seeded database; no session cookie | Anonymous calls `GET /api/v1/transactions` and `GET /api/v1/transactions/{txn-card-charge}` | Both return 401 UNAUTHENTICATED; zero records returned. |
 | **TEST-07.8** | AC-07.7 | A | Alice logged in | GET `/api/v1/transactions?offset=-1`; then GET `/api/v1/transactions?limit=101` | Each returns 400 VALIDATION_ERROR; no items returned. |
+| **TEST-07.9** | AC-07.6 | E | Alice logged in | Open `/transactions` with no transactions recorded; then open it while the history request fails, and press Retry once it succeeds | The empty state shows "No transactions recorded yet"; the failed request shows the error banner with a Retry button, and Retry renders the history. |
 
 ---
 
@@ -85,6 +87,6 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 - Every AC above has an executed automated test with results documented.
 - Failing-first evidence is retained for AC-07.4 (cross-user access isolation).
 - TEST-07.4 also discharges F-01 AC-01.9 / TEST-01.9, whose verification moved here in f-01 v1.1.
-- Query performance verified: index `idx_transactions_user_date` utilized in query execution plan.
+- Query performance verified: index `transactions_user_id_txn_date_created_at_idx` utilized in query execution plan.
 - Product Definition of Done in [README.md](README.md) is met.
 
