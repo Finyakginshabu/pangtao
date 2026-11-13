@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { AccountType } from '@prisma/client';
-import { checkAllocationSum, checkPaymentAccounts, RuleAccount } from '../../server/src/services/allocation.rules.js';
+import { checkAllocationSum, checkPaymentAccounts, checkReceiptAccounts, RuleAccount } from '../../server/src/services/allocation.rules.js';
 import { AppError } from '../../server/src/middleware/error.middleware.js';
 
 const MAX = 10_000_000_000n; // 100,000,000.00 THB
@@ -81,5 +81,44 @@ describe('F-05 Payment and Charge (unit rules)', () => {
     expect(thrownCode(() => checkPaymentAccounts(account('CASH', true), [account('EXPENSE')]))).toBe(
       'VALIDATION_ERROR'
     );
+  });
+});
+
+describe('F-06 Received Money (unit rules)', () => {
+  it('TEST-06.3 (AC-06.3): a receipt line sum that differs from the total is rejected with INVALID_ALLOCATION_SUM', () => {
+    // 5,000.00 THB total, line 4,000.00 THB.
+    expect(thrownCode(() => checkAllocationSum(500_000n, [400_000n]))).toBe('INVALID_ALLOCATION_SUM');
+    // Exact match passes.
+    expect(thrownCode(() => checkAllocationSum(500_000n, [300_000n, 200_000n]))).toBeNull();
+  });
+
+  it('TEST-06.11 (AC-06.11): only Cash → Income is accepted for a receipt', () => {
+    const allTypes: AccountType[] = ['CASH', 'LOAN_TAKEN', 'LOAN_GIVEN', 'INCOME', 'EXPENSE'];
+
+    for (const targetType of allTypes) {
+      const code = thrownCode(() => checkReceiptAccounts(account('CASH'), [account(targetType)]));
+      expect(code, `CASH → ${targetType}`).toBe(targetType === 'INCOME' ? null : 'INVALID_TARGET_ACCOUNT');
+    }
+  });
+
+  it('TEST-06.11 (AC-06.11): a non-Cash receiving account is rejected with INVALID_SOURCE_ACCOUNT', () => {
+    for (const type of ['LOAN_TAKEN', 'LOAN_GIVEN', 'INCOME', 'EXPENSE'] as const) {
+      expect(thrownCode(() => checkReceiptAccounts(account(type), [account('INCOME')])), type).toBe(
+        'INVALID_SOURCE_ACCOUNT'
+      );
+    }
+  });
+
+  it('TEST-06.11 (AC-06.11): an archived target or the receiving account as its own target is rejected with INVALID_TARGET_ACCOUNT', () => {
+    const bank = account('CASH');
+    expect(thrownCode(() => checkReceiptAccounts(bank, [account('INCOME', true)]))).toBe(
+      'INVALID_TARGET_ACCOUNT'
+    );
+    expect(thrownCode(() => checkReceiptAccounts(bank, [bank]))).toBe('INVALID_TARGET_ACCOUNT');
+
+    // One bad line among good ones is enough to reject the whole receipt.
+    expect(
+      thrownCode(() => checkReceiptAccounts(bank, [account('INCOME'), account('EXPENSE')]))
+    ).toBe('INVALID_TARGET_ACCOUNT');
   });
 });

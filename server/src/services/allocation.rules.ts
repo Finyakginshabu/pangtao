@@ -1,5 +1,5 @@
 /**
- * F-05 allocation rules (pure): no database, no I/O. Each check throws an AppError
+ * F-05/F-06 allocation rules (pure): no database, no I/O. Each check throws an AppError
  * so the calling service can run it inside its database transaction.
  */
 import type { AccountType } from '@prisma/client';
@@ -12,12 +12,16 @@ export interface RuleAccount {
 }
 
 /**
- * BR-06 / BR-16, Sprint 1 Payment matrix (srs §4): allowed source types, and for each
- * source type the allowed line target types. F-06 adds the Receipt matrix beside it.
+ * BR-06 / BR-16, Sprint 1 matrices (srs §4): allowed source types, and for each source
+ * type the allowed line target types.
  */
 const PAYMENT_TARGETS: Readonly<Partial<Record<AccountType, ReadonlySet<AccountType>>>> = {
   CASH: new Set<AccountType>(['EXPENSE', 'LOAN_TAKEN']), // spending, card or loan repayment
   LOAN_TAKEN: new Set<AccountType>(['EXPENSE']), // card charge
+};
+
+const RECEIPT_TARGETS: Readonly<Partial<Record<AccountType, ReadonlySet<AccountType>>>> = {
+  CASH: new Set<AccountType>(['INCOME']), // earnings
 };
 
 /** BR-05: line amounts must sum exactly to the total. Summed as bigint, so never rounded. */
@@ -28,6 +32,29 @@ export function checkAllocationSum(total: bigint, amounts: readonly bigint[]): v
       { field: 'lines', issue: 'line amounts must sum exactly to totalAmount' },
     ]);
   }
+}
+
+/**
+ * BR-06: each line target (in line order) must be active, differ from the source, and be
+ * allowed for it. Shared by the Payment and Receipt matrices.
+ */
+function checkTargets(
+  source: RuleAccount,
+  targets: readonly RuleAccount[],
+  allowedTargets: ReadonlySet<AccountType>,
+  message: string
+): void {
+  targets.forEach((target, index) => {
+    const field = `lines.${index}.targetAccountId`;
+    let issue: string | null = null;
+    if (target.isArchived) issue = 'target account must not be archived';
+    else if (target.id === source.id) issue = 'target account must differ from the source account';
+    else if (!allowedTargets.has(target.type)) issue = 'target account type is not allowed for this source';
+
+    if (issue) {
+      throw new AppError(400, 'INVALID_TARGET_ACCOUNT', message, [{ field, issue }]);
+    }
+  });
 }
 
 /**
@@ -48,17 +75,26 @@ export function checkPaymentAccounts(source: RuleAccount, targets: readonly Rule
     ]);
   }
 
-  targets.forEach((target, index) => {
-    const field = `lines.${index}.targetAccountId`;
-    let issue: string | null = null;
-    if (target.isArchived) issue = 'target account must not be archived';
-    else if (target.id === source.id) issue = 'target account must differ from the source account';
-    else if (!allowedTargets.has(target.type)) issue = 'target account type is not allowed for this source';
+  checkTargets(source, targets, allowedTargets, 'A line targets an account this payment cannot use');
+}
 
-    if (issue) {
-      throw new AppError(400, 'INVALID_TARGET_ACCOUNT', 'A line targets an account this payment cannot use', [
-        { field, issue },
-      ]);
-    }
-  });
+/**
+ * BR-14, BR-16, BR-06: the receiving account must be an active Cash account, and each
+ * line target (in line order) must be active, differ from the source, and be Income.
+ */
+export function checkReceiptAccounts(source: RuleAccount, targets: readonly RuleAccount[]): void {
+  if (source.isArchived) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Archived accounts cannot record new transactions', [
+      { field: 'accountId', issue: 'account must not be archived' },
+    ]);
+  }
+
+  const allowedTargets = RECEIPT_TARGETS[source.type];
+  if (!allowedTargets) {
+    throw new AppError(400, 'INVALID_SOURCE_ACCOUNT', 'A receipt must be received into a Cash account', [
+      { field: 'accountId', issue: 'source account type must be CASH' },
+    ]);
+  }
+
+  checkTargets(source, targets, allowedTargets, 'A line targets an account this receipt cannot use');
 }

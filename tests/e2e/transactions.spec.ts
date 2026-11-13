@@ -131,3 +131,66 @@ test.describe('F-05 Payment and Charge (STS)', () => {
     await expect(page.getByTestId('payment-submit')).toBeDisabled();
   });
 });
+
+test.describe('F-06 Received Money (STS)', () => {
+  test.beforeEach(async () => {
+    await clearAliceLedger();
+  });
+
+  test.afterAll(async () => {
+    await clearAliceLedger();
+    await prisma.$disconnect();
+  });
+
+  test('TEST-06.8 (AC-06.8): a salary receipt shows live allocation, submits, and raises the Cash balance', async ({
+    page,
+  }) => {
+    await loginAsAlice(page);
+    await page.goto('/transactions/new');
+    await page.getByTestId('tab-receipt').click();
+    await expect(page.getByTestId('tab-receipt')).toHaveAttribute('aria-selected', 'true');
+
+    // The source list offers Cash accounts only (f-06 §2.2).
+    const source = page.getByTestId('receipt-source');
+    await expect(source.locator('option', { hasText: 'Bank Account' })).toHaveCount(1);
+    await expect(source.locator('option', { hasText: 'Wallet' })).toHaveCount(1);
+    await expect(source.locator('option', { hasText: 'Credit Card' })).toHaveCount(0);
+    await expect(source.locator('option', { hasText: 'Salary' })).toHaveCount(0);
+    await source.selectOption({ label: 'Bank Account' });
+
+    // A receipt may only target Income accounts in Sprint 1 (BR-06).
+    const firstTarget = page.getByTestId('line-target-0');
+    await expect(firstTarget.locator('option', { hasText: 'Salary' })).toHaveCount(1);
+    await expect(firstTarget.locator('option', { hasText: 'Dining' })).toHaveCount(0);
+    await expect(firstTarget.locator('option', { hasText: 'Bank Account' })).toHaveCount(0);
+
+    await page.getByTestId('receipt-total').fill('30,000.00');
+    await expect(page.getByTestId('summary-total')).toHaveText('30,000.00 ฿');
+    await expect(page.getByTestId('summary-remaining')).toHaveText('30,000.00 ฿');
+    const submit = page.getByTestId('receipt-submit');
+    await expect(submit).toBeDisabled();
+
+    await firstTarget.selectOption({ label: 'Salary' });
+    await page.getByTestId('line-amount-0').fill('30000');
+    await expect(page.getByTestId('summary-allocated')).toHaveText('30,000.00 ฿');
+    await expect(page.getByTestId('summary-remaining')).toHaveText('0.00 ฿');
+    await expect(submit).toBeEnabled();
+
+    await submit.click();
+
+    // f-06 1.2: redirect to the Dashboard, where the Cash balance reflects the receipt.
+    await expect(page).toHaveURL(/^http:\/\/localhost:3000\/?$/);
+    await expect(
+      page.getByTestId('dashboard-section-cash').getByTestId('account-balance-Bank Account')
+    ).toHaveText('30,000.00 ฿');
+
+    // One RECEIPT with one allocation line is stored for Alice.
+    const stored = await prisma.transaction.findMany({
+      where: { userId: await aliceUserId(), kind: 'RECEIPT' },
+      include: { lines: { orderBy: { lineNo: 'asc' }, include: { targetAccount: { select: { name: true } } } } },
+    });
+    expect(stored).toHaveLength(1);
+    expect(stored[0].totalAmount).toBe(3_000_000n); // 30,000.00 THB
+    expect(stored[0].lines.map((l) => [l.targetAccount.name, l.amount])).toEqual([['Salary', 3_000_000n]]);
+  });
+});
