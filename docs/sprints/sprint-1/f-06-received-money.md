@@ -1,6 +1,6 @@
 # F-06 Received Money: Engineering Contract
 
-Requirements: FR-13; BR-04, BR-05, BR-06, BR-07, BR-10, BR-16 · Depends on: F-03 · Contract version: 1.0 · Suggested branch: `feature/F-06-received-money`
+Requirements: FR-13; BR-04, BR-05, BR-06, BR-07, BR-10, BR-14, BR-16 · Depends on: F-03 · Contract version: 1.2 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-06-received-money`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -17,7 +17,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 3. The user adds one or more allocation lines specifying target Income accounts (e.g. Salary, Interest Earned) and their respective amounts.
 4. The UI displays the remaining unallocated balance; the submit button is disabled until lines sum exactly to the total amount.
 5. On submit, the server validates the payload, ensures the receiving account is `CASH`, ensures target accounts are `INCOME`, verifies the line sum invariant, and persists the record atomically.
-6. The user is redirected to Transaction History or Dashboard with updated balances.
+6. The user is redirected to the Dashboard with updated balances.
 
 **Rules and validation**
 
@@ -27,7 +27,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
   - Source account must be of type `CASH`.
   - Target accounts in Sprint 1 must be of type `INCOME`. (Targeting loan accounts or other cash accounts is introduced in Sprint 2).
   - Target account cannot equal the receiving source account.
-  - Accounts must belong to the session user and not be archived.
+  - Accounts must belong to the session user and not be archived. An archived receiving account returns `400 VALIDATION_ERROR` and nothing is saved (BR-14, as in F-04).
 - **BR-07 (Atomic Balance Effects)**:
   - Receiving Cash account balance increases by `totalAmount`.
   - Each target Income account total increases by its respective line amount.
@@ -44,10 +44,11 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 | Endpoint | Request | Success | Errors |
 |---|---|---|---|
-| POST /api/v1/transactions | `{ kind: "RECEIPT", accountId, txnDate, totalAmount, memo?, lines: [ { targetAccountId, amount, note? } ] }` | 201 `{ transaction: { id, kind, accountId, txnDate, totalAmount, memo, lines } }` | 400 VALIDATION_ERROR; 400 INVALID_SOURCE_ACCOUNT; 400 INVALID_TARGET_ACCOUNT; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 415 UNSUPPORTED_MEDIA_TYPE |
+| POST /api/v1/transactions | `{ kind: "RECEIPT", accountId, txnDate, totalAmount, memo?, lines: [ { targetAccountId, amount, note? } ] }` | 201 `{ transaction: { id, kind, accountId, txnDate, totalAmount, memo, lines } }` | 400 VALIDATION_ERROR; 400 INVALID_ALLOCATION_SUM; 400 FUTURE_DATE_NOT_ALLOWED; 400 INVALID_SOURCE_ACCOUNT; 400 INVALID_TARGET_ACCOUNT; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 415 UNSUPPORTED_MEDIA_TYPE |
 
 - When lines do not sum to total: returns 400 with code `INVALID_ALLOCATION_SUM`.
 - When receiving account is not Cash: returns 400 with code `INVALID_SOURCE_ACCOUNT`.
+- When the receiving account is archived: returns 400 VALIDATION_ERROR (BR-14).
 - When target account is not Income in Sprint 1: returns 400 with code `INVALID_TARGET_ACCOUNT`.
 - When any account belongs to another user: returns 404 NOT_FOUND.
 
@@ -76,6 +77,8 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-06.7 | Attempting to receive money into an account owned by another user returns 404 NOT_FOUND. |
 | AC-06.8 | In the browser, user submits a salary receipt, observes form calculations, and verifies updated Cash balance on the Dashboard. |
 | AC-06.9 | A zero or negative total or line amount, or an amount above $100,000,000.00\text{ THB}$, returns 400 VALIDATION_ERROR and saves nothing (BR-04). |
+| AC-06.10 | Receiving money into an archived Cash account returns 400 VALIDATION_ERROR and saves nothing (BR-14). |
+| AC-06.11 | A receipt line targeting an archived account, the receiving account itself, or an account outside the Sprint 1 receipt matrix returns 400 INVALID_TARGET_ACCOUNT and saves nothing (BR-06). |
 
 ---
 
@@ -92,13 +95,15 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-06.7** | AC-06.7 | A | Bob logged in; Alice's Bank Account ID; Alice's Salary account ID | Bob sends POST `/api/v1/transactions` (kind: RECEIPT, source: Alice's Bank, total: 5,000.00 THB); then with Alice's Salary account as a line target | Both return 404 NOT_FOUND; Alice's balances unchanged. |
 | **TEST-06.8** | AC-06.8 | E | Alice logged in | In browser, open `/transactions/new`, click Receive tab, choose Bank Account, enter 30,000.00 THB, select Salary, submit | Form submits, redirects; Dashboard shows Bank Account increased by 30,000.00 THB. |
 | **TEST-06.9** | AC-06.9 | A | Alice logged in; Bank source | POST `/api/v1/transactions` (kind: RECEIPT) with total 0; then total -100; then total 10000000001; then a valid total with a line amount of 0 | Each returns 400 VALIDATION_ERROR; no transaction or line is saved. |
+| **TEST-06.10** | AC-06.10 | A | Alice logged in; archived Bank Account | POST `/api/v1/transactions` (kind: RECEIPT, source: archived Bank, total: 1,000.00 THB, lines: Salary 1,000.00 THB) | 400 VALIDATION_ERROR; no transaction or line is saved. |
+| **TEST-06.11** | AC-06.11 | U, A | Alice logged in; Bank source | POST `/api/v1/transactions` (kind: RECEIPT, source: Bank) with a line targeting an archived Income account, then Bank itself, then Wallet, Credit Card or Dining | Each returns 400 INVALID_TARGET_ACCOUNT; nothing is saved. |
 
 ---
 
 ## 5. Definition of done (F-06)
 
 - Every AC above has an executed automated test with results documented.
-- Failing-first evidence is retained for AC-06.3 (line sum mismatch) and AC-06.4 (invalid source type).
+- Failing-first evidence is retained for AC-06.3 (line sum mismatch), AC-06.4 (invalid source type), AC-06.10 (archived receiving account) and AC-06.11 (invalid target).
 - Transaction rollback verified: any validation error aborts the entire database transaction cleanly.
 - Product Definition of Done in [README.md](README.md) is met.
 

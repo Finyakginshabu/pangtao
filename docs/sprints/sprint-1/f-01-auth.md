@@ -1,6 +1,6 @@
 # F-01 Authentication and Authorization Foundation: Engineering Contract
 
-Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.0 · Suggested branch: `feature/F-01-auth-foundation`
+Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.4 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -37,7 +37,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 - Default deny: every route is registered with an explicit access level (`public`, `authenticated`, `USER`, `ADMIN`); server refuses to start if any route lacks a declared guard (NFR-02).
 - Ownership: all financial queries filter by `session.userId`. Requesting another user's record returns `404 NOT_FOUND` (BR-01, D-03).
 - Admin isolation: administrators receive `403 FORBIDDEN` when accessing financial endpoints (BR-02).
-- CSRF protection: mutating requests (`POST`, `PATCH`, `PUT`, `DELETE`) require `Content-Type: application/json` and verify `Origin` matches the host.
+- CSRF protection: mutating requests (`POST`, `PATCH`, `PUT`, `DELETE`) must declare `Content-Type: application/json` for any body (a body without a Content-Type is rejected) and must carry an `Origin` header that matches the host (a missing `Origin` is rejected).
 
 **Permissions**
 
@@ -66,11 +66,11 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 
 - **Login Screen (`/login`)**: Email and password inputs; "Log in" button disabled while request is pending. Failure shows generic banner: "Invalid email or password".
 - **App Shell**: Top bar with brand logo, role-based navigation links, authenticated user's name, and "Log out" button.
-- **Route Guard**: Unauthenticated visitor redirected to `/login`; unauthorized role shows "Not permitted" page; API 401 triggers redirection to `/login` with notification "Your session has expired".
+- **Route Guard**: Unauthenticated visitor redirected to `/login`; a User attempting to access an Administrator page sees the "Not permitted" page; an Administrator accessing a User page (such as `/`) is redirected to `/admin/users`; API 401 triggers redirection to `/login`.
 
 ### 2.3 Data
 
-- Tables `users` and `sessions` as defined in System-Level SDS. Migration `0001_users_sessions`.
+- Tables `users` and `sessions` as defined in System-Level SDS. Migration `20261107163413_init_users_sessions` (Prisma timestamp naming).
 - Seed data: `admin@example.test` (`ADMIN`), `alice@example.test` (`USER`), `bob@example.test` (`USER`). Passwords hashed with bcrypt cost 12 from `SEED_DEFAULT_PASSWORD`. No plaintext passwords in repository.
 
 ---
@@ -87,11 +87,11 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-01.6 | A session token older than 8 hours is rejected with 401 UNAUTHENTICATED and its database record is removed. |
 | AC-01.7 | Every protected route returns 401 to anonymous requests. Any route registered without a declared access guard causes the server to halt on startup. |
 | AC-01.8 | An Administrator calling User-only financial endpoints and a User calling Administrator-only endpoints receive 403 FORBIDDEN with no sensitive payload. |
-| AC-01.9 | A User querying another user's financial record by ID receives 404 NOT_FOUND and zero private data (BR-01, D-03). |
+| AC-01.9 | A User querying another user's financial record by ID receives 404 NOT_FOUND and zero private data (BR-01, D-03). **v1.1: verification moved to F-07** (AC-07.4 / TEST-07.4). No user-owned financial record exists until F-05, so it cannot be exercised in F-01. |
 | AC-01.10 | Passwords in the database are valid bcrypt hashes with cost $\ge 12$; no plaintext password exists in seed, source, or test fixtures (NFR-01). |
 | AC-01.11 | Forced internal exceptions return 500 INTERNAL_ERROR with a sanitized generic message, `X-Request-Id` header, and zero stack trace, SQL, or file paths (NFR-04). |
 | AC-01.12 | The 11th failed login attempt within 15 minutes from the same IP and email returns 429 RATE_LIMITED, even if the correct password is submitted. |
-| AC-01.13 | Mutating requests with a mismatched `Origin` return 403 FORBIDDEN; requests with non-JSON content type return 415 UNSUPPORTED_MEDIA_TYPE. |
+| AC-01.13 | Mutating requests with a missing or mismatched `Origin` return 403 FORBIDDEN; requests whose body has a non-JSON or missing content type return 415 UNSUPPORTED_MEDIA_TYPE. |
 | AC-01.14 | In the browser: invalid login displays error banner; valid User login lands on Dashboard; valid Admin login lands on Users; logout clears state; back button shows no private data. |
 
 ---
@@ -106,20 +106,20 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-01.4** | AC-01.4 | A | Alice logged in | GET `/api/v1/auth/me` with cookie, without cookie, and with forged cookie | First returns 200 with Alice identity; latter two return 401 UNAUTHENTICATED. |
 | **TEST-01.5** | AC-01.5 | A | Alice logged in with active cookie | POST `/api/v1/auth/logout`; then GET `/api/v1/auth/me` with old cookie | Logout returns 204, clears cookie; session row deleted; subsequent GET `/auth/me` returns 401. |
 | **TEST-01.6** | AC-01.6 | A | Active session with `expires_at` shifted to 1 second in the past | GET `/api/v1/auth/me` | 401 UNAUTHENTICATED; expired session deleted from database. |
-| **TEST-01.7** | AC-01.7 | A | Server route registry | Send anonymous request to all registered API endpoints; register test route lacking access declaration | All endpoints return 401 UNAUTHENTICATED; registering route without access declaration throws during server boot. |
-| **TEST-01.8** | AC-01.8 | A | Admin and Alice logged in | Admin calls `GET /api/v1/accounts`; Alice calls `GET /api/v1/admin/users` | Both return 403 FORBIDDEN with no domain data. |
-| **TEST-01.9** | AC-01.9 | A | Alice owns transaction `txn-alice-salary`; Bob logged in | Bob calls `GET /api/v1/transactions/txn-alice-salary` | 404 NOT_FOUND; zero record data returned. |
+| **TEST-01.7** | AC-01.7 | A | Server route registry | Send anonymous request to all registered API endpoints; register test route lacking access declaration | All endpoints return 401 UNAUTHENTICATED; registering route without access declaration throws during server boot. (v1.1: the boot check walks the mounted route table; a route whose first handler is not `access(...)` stops app creation.) |
+| **TEST-01.8** | AC-01.8 | A | Admin and Alice logged in | Admin calls `GET /api/v1/accounts`; Alice calls `GET /api/v1/admin/users` | Both return 403 FORBIDDEN with no domain data. (v1.1 Sprint 1 placeholder: until F-03/F-02 deliver these endpoints, the test runs against test-only fixtures `GET /api/v1/test/user-only` and `GET /api/v1/test/admin-only`, mounted only when `NODE_ENV=test`. It is re-pointed when the real endpoints land.) |
+| **TEST-01.9** | AC-01.9 | A | Alice owns transaction `txn-alice-salary`; Bob logged in | Bob calls `GET /api/v1/transactions/txn-alice-salary` | 404 NOT_FOUND; zero record data returned. **v1.1: executed as TEST-07.4 in F-07**; no F-01 test, no skipped placeholder. |
 | **TEST-01.10** | AC-01.10 | A | Seeded database | Inspect `users.password_hash` in DB; static code search for seed password in codebase | All hashes match `$2b$12$` format; static search finds no plaintext passwords in source or test files. |
-| **TEST-01.11** | AC-01.11 | A | Route throwing simulated database crash error with raw SQL | Request crashing route | 500 INTERNAL_ERROR with generic message and `X-Request-Id`; response body contains no SQL, table names, or stack traces. |
+| **TEST-01.11** | AC-01.11 | A | Route throwing simulated database crash error with raw SQL | Request crashing route (test-only fixture `GET /api/v1/test/crash`, mounted only when `NODE_ENV=test`) | 500 INTERNAL_ERROR with generic message and `X-Request-Id`; response body contains no SQL, table names, or stack traces. |
 | **TEST-01.12** | AC-01.12 | A | Rate limiter configured (10 attempts / 15 min) | Submit 10 wrong-password logins for Alice, then 11th attempt with correct password; submit 1 attempt for Bob | 11th attempt for Alice returns 429 RATE_LIMITED; attempt for Bob returns 401 (independent quota). |
-| **TEST-01.13** | AC-01.13 | A | Alice logged in | POST `/api/v1/transactions` with `Origin: https://attacker.example`; POST with `Content-Type: text/plain` | 403 FORBIDDEN; 415 UNSUPPORTED_MEDIA_TYPE; zero database rows created. |
+| **TEST-01.13** | AC-01.13 | A | Alice logged in | POST `/api/v1/transactions` with `Origin: https://attacker.example`; POST with no `Origin`; POST with `Content-Type: text/plain`; POST a body with no `Content-Type` | 403 FORBIDDEN; 403 FORBIDDEN; 415 UNSUPPORTED_MEDIA_TYPE; 415 UNSUPPORTED_MEDIA_TYPE; zero database rows created. (v1.1 Sprint 1 placeholder: until F-05 delivers `POST /transactions`, the same global guard is exercised on `POST /auth/logout` and `POST /auth/login`, asserting no session is deleted or created.) |
 | **TEST-01.14** | AC-01.14 | E | Seeded users Alice and Admin | In browser: submit invalid password; log in as Alice; log out and click browser Back; log in as Admin; open `/admin/users` as Alice | Invalid login shows error alert; Alice lands on `/`; after logout `/login` renders and Back shows no data; Admin lands on `/admin/users`; Alice visiting `/admin/users` sees Not permitted. |
 
 ---
 
 ## 5. Definition of done (F-01)
 
-- Every AC above has at least one automated test executed on the release commit with results documented.
-- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12.
+- Every AC above **except AC-01.9** has at least one automated test executed on the release commit, with results recorded as the Product DoD in [README.md](README.md) §4 requires (v1.3). AC-01.9 is verified by TEST-07.4 in F-07 (v1.1), so **F-01 is Done only once TEST-07.4 passes**.
+- Failing-first evidence is retained for AC-01.2, AC-01.7, and AC-01.12. **Disclosure (v1.2):** the original F-01 commit added tests and implementation together, so no red-to-green commit history exists. In its place, retroactive mutation checks were recorded: the behavior is removed, the named test is shown failing, the code is restored, and the test passes again. Their output is in commit `90a00dd` (`docs/sprints/sprint-1/evidence/f-01/failing-first-TEST-01.x.txt`, removed from the working tree in v1.3; read with `git show 90a00dd:<path>`). Later features record genuine failing-test commits.
 - Product Definition of Done in [README.md](README.md) is met.
 

@@ -1,6 +1,6 @@
 # F-04 Opening Balance: Engineering Contract
 
-Requirements: FR-10; BR-04, BR-11 · Depends on: F-03 · Contract version: 1.0 · Suggested branch: `feature/F-04-opening-balance`
+Requirements: FR-10; BR-04, BR-10, BR-11, BR-14 · Depends on: F-03 · Contract version: 1.1 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-04-opening-balance`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -16,6 +16,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 2. The user inputs an amount (in THB, $\ge 0$) and a date ($\le$ today Bangkok time) in a modal dialog and submits.
 3. The server authenticates the caller (`USER` role) and checks:
    - Target account exists and belongs to `session.userId`.
+   - Target account is not archived (BR-14).
    - Target account type is `CASH`, `LOAN_TAKEN`, or `LOAN_GIVEN` (Income and Expense accounts are rejected).
    - Target account does not already possess an active opening balance.
 4. The server creates a record in `transactions` with `kind = 'OPENING_BALANCE'`, `account_id = targetAccountId`, `total_amount = amount`, `txn_date = date`, and zero allocation lines.
@@ -30,6 +31,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
   - An account has at most one opening balance. A second submission returns `409 OPENING_BALANCE_EXISTS`.
 - **Decision D-05**: Modeled as distinct transaction kind `OPENING_BALANCE`, ensuring it is excluded from income and expense summaries by construction (BR-08).
 - **BR-01 (Ownership)**: Only the account owner may record an opening balance. Cross-user attempts return `404 NOT_FOUND`.
+- **BR-14 (Archived Accounts)**: Archived accounts cannot be used in new transactions. Submissions for an archived account return `400 VALIDATION_ERROR` and save nothing; the Dashboard withholds the "Set opening balance" action on archived rows. Archived accounts keep their existing history (F-09 owns the lifecycle).
 
 **Permissions:** User only. Administrator receives 403, anonymous receives 401.
 
@@ -46,11 +48,13 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 - `amount`: integer satang, $\ge 0$.
 - `date`: `YYYY-MM-DD`, $\le$ today Bangkok time.
 - If `:id` is unknown or owned by another user: returns 404 NOT_FOUND.
+- If the account is archived: returns 400 VALIDATION_ERROR.
+- Ownership, archived, account-type, date and duplicate checks run in one database transaction with the insert, so a rejected request writes nothing.
 
 ### 2.2 UI
 
-- **Dashboard Card**: Cards for Cash, Loan Taken, and Loan Given accounts without an opening balance render a "Set opening balance" button.
-- **Dialog / Modal**: Amount input with satang conversion, date picker defaulting to today (Bangkok). Inline validation displays error if amount is negative or date is future.
+- **Dashboard Card**: Cards for Cash, Loan Taken, and Loan Given accounts without an opening balance render a "Set opening balance" button; archived accounts never render it.
+- **Dialog / Modal**: Amount input with satang conversion, date picker defaulting to today (Bangkok). Inline validation displays error if amount is negative or date is future. An API 401 while saving redirects to `/login` (F-01 §2.2).
 - **Post-Submission**: The dialog closes, the card balance updates immediately, and the button is replaced by text showing the recorded opening balance.
 
 ### 2.3 Data
@@ -74,6 +78,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | AC-04.7 | Negative amounts or amounts exceeding $100,000,000.00\text{ THB}$ return 400 VALIDATION_ERROR. |
 | AC-04.8 | Attempting to set an opening balance on another user’s account returns 404 NOT_FOUND; Administrator caller receives 403 FORBIDDEN; anonymous receives 401. |
 | AC-04.9 | Setting a valid opening balance on a Loan Given account returns 201 and establishes the amount owed to the user baseline. |
+| AC-04.10 | Submitting an opening balance on an archived account returns 400 VALIDATION_ERROR and saves nothing; the Dashboard withholds the "Set opening balance" action on archived rows (BR-14). |
 
 ---
 
@@ -90,12 +95,13 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 | **TEST-04.7** | AC-04.7 | A | Alice logged in | POST opening balance with `{ amount: -100 }` and `{ amount: 10000000001 }` | 400 VALIDATION_ERROR for both requests. |
 | **TEST-04.8** | AC-04.8 | A | Bob logged in; Alice’s Bank Account ID | Bob calls POST opening balance on Alice’s bank; Admin calls it; anonymous calls it | Bob receives 404 NOT_FOUND; Admin receives 403 FORBIDDEN; Anonymous receives 401 UNAUTHENTICATED. Alice's account unchanged. |
 | **TEST-04.9** | AC-04.9 | A | Seeded database; Alice logged in; Loan Given account has 0 balance | POST `/api/v1/accounts/{loanGivenId}/opening-balance` with `{ amount: 2000000, date: "2026-11-01" }` | 201 Created; GET `/api/v1/accounts` shows the Loan Given balance `2000000` ($20,000.00\text{ THB}$). |
+| **TEST-04.10** | AC-04.10 | A, E | Seeded database; Alice logged in; Wallet archived directly in the database | API: POST `/api/v1/accounts/{walletId}/opening-balance` with `{ amount: 100000, date: "2026-11-01" }`. E2E: load the Dashboard while Wallet is archived | API: 400 VALIDATION_ERROR, no transaction created. E2E: Wallet row is visible but has no "Set opening balance" action, while an active account still does. |
 
 ---
 
 ## 5. Definition of done (F-04)
 
 - Every AC above has an executed automated test with results documented.
-- Failing-first evidence is retained for AC-04.4 (duplicate prevention) and AC-04.5 (account type restriction).
+- Failing-first evidence is retained for AC-04.4 (duplicate prevention), AC-04.5 (account type restriction) and AC-04.10 (archived accounts).
 - Opening balance integration with balance derivation is verified via F-03 integration suite.
 - Product Definition of Done in [README.md](README.md) is met.
