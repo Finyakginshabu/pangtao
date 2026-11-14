@@ -44,7 +44,8 @@ model Session {
 
 // Failed-login counter for the AC-01.12 rate limit (10 per 15 minutes per client IP + email).
 // Stored in the database, not in process memory, so the count survives a restart and is
-// shared by every Cloud Run instance (Lab 5 R-04). Rows past reset_at are stale and deleted.
+// shared by every Cloud Run instance (Lab 5 R-04). Rows past reset_at are deleted on the next
+// login attempt (LoginAttemptService.isBlocked), so client IPs are not kept longer than needed.
 model LoginAttempt {
   ip      String
   email   String

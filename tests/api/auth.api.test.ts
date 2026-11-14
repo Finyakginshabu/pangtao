@@ -395,6 +395,15 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
       }
     });
 
+    it('AC-01.12 TRUST_PROXY values: off when empty, "0" or "false"; startup refuses "true" and malformed values', () => {
+      for (const off of ['', '0', 'false']) {
+        expect(withTrustProxy(off).get('trust proxy')).toBeFalsy();
+      }
+      expect(withTrustProxy('1').get('trust proxy')).toBe(1);
+      expect(() => withTrustProxy('true')).toThrow(/TRUST_PROXY=true would trust any X-Forwarded-For value/);
+      expect(() => withTrustProxy('not-an-address')).toThrow(/Invalid TRUST_PROXY "not-an-address"/);
+    });
+
     it('AC-01.12 window expiry: an expired count no longer blocks, and every login attempt deletes expired rows', async () => {
       const past = new Date(Date.now() - 1000);
       // Alice's own window ran out with 10 failures (one real failure records the address the

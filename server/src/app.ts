@@ -29,14 +29,22 @@ function defaultWebDistDir(): string | null {
   return process.env.NODE_ENV === 'production' && isBuilt ? BUILT_WEB_DIR : null;
 }
 
-/** TRUST_PROXY: a hop count ("1" on Cloud Run) or an Express trust-proxy list ("loopback"). Empty means off. */
+/**
+ * TRUST_PROXY: a hop count ("1" on Cloud Run) or a comma-separated list of proxy addresses or
+ * subnets ("loopback", "10.0.0.0/8"). Empty, "0" or "false" means off. "true" is refused because
+ * it would trust any X-Forwarded-For value a client sends.
+ */
 function parseTrustProxy(value: string | undefined): number | string | undefined {
   const trimmed = value?.trim();
-  if (!trimmed) return undefined;
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
+  if (!trimmed || trimmed === '0' || trimmed.toLowerCase() === 'false') return undefined;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  if (trimmed.toLowerCase() === 'true') {
+    throw new Error('TRUST_PROXY=true would trust any X-Forwarded-For value. Set the hop count instead (1 on Cloud Run).');
+  }
+  return trimmed;
 }
 
-const notFound =(_req: Request, _res: Response, next: NextFunction) =>
+const notFound = (_req: Request, _res: Response, next: NextFunction) =>
   next(new AppError(404, 'NOT_FOUND', 'The requested resource was not found'));
 
 export function createApp(options: AppOptions = {}) {
@@ -51,7 +59,13 @@ export function createApp(options: AppOptions = {}) {
   // Unset by default: when the app is reached directly, the header is client-controlled.
   const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
   if (trustProxy !== undefined) {
-    app.set('trust proxy', trustProxy);
+    try {
+      app.set('trust proxy', trustProxy);
+    } catch {
+      throw new Error(
+        `Invalid TRUST_PROXY "${trustProxy}": use a hop count (1 on Cloud Run) or a comma-separated list of proxy addresses or subnets.`
+      );
+    }
   }
 
   // Request tracking first so every response (including rejections) carries X-Request-Id.

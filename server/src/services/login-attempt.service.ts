@@ -10,9 +10,12 @@ export const FAILED_LOGIN_WINDOW_MS = 15 * 60 * 1000;
  * already trimmed and lower-cased.
  */
 export class LoginAttemptService {
+  /** Runs before every login attempt, so it also deletes expired windows: client IPs are not kept longer than needed. */
   async isBlocked(ip: string, email: string): Promise<boolean> {
+    const now = new Date();
+    await this.deleteExpired(now);
     const blocked = await prisma.loginAttempt.count({
-      where: { ip, email, count: { gte: MAX_FAILED_LOGINS }, resetAt: { gt: new Date() } },
+      where: { ip, email, count: { gte: MAX_FAILED_LOGINS }, resetAt: { gt: now } },
     });
     return blocked > 0;
   }
@@ -20,8 +23,8 @@ export class LoginAttemptService {
   async recordFailure(ip: string, email: string): Promise<void> {
     const now = new Date();
     await prisma.$transaction([
-      // Expired windows start over; this also clears stale rows for other clients.
-      prisma.loginAttempt.deleteMany({ where: { resetAt: { lte: now } } }),
+      // A window that expired since the check starts over instead of being incremented.
+      this.deleteExpiredQuery(now),
       // Unique-key upsert runs as one INSERT … ON CONFLICT, so concurrent failures on
       // different instances each add exactly one to the count.
       prisma.loginAttempt.upsert({
@@ -35,6 +38,14 @@ export class LoginAttemptService {
   /** A successful login clears the count for that client IP + email. */
   async reset(ip: string, email: string): Promise<void> {
     await prisma.loginAttempt.deleteMany({ where: { ip, email } });
+  }
+
+  private deleteExpiredQuery(now: Date) {
+    return prisma.loginAttempt.deleteMany({ where: { resetAt: { lte: now } } });
+  }
+
+  private async deleteExpired(now: Date): Promise<void> {
+    await this.deleteExpiredQuery(now);
   }
 
   /** Test support: forget every recorded failure. */
