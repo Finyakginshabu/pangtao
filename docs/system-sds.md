@@ -24,7 +24,7 @@ Express application (one container)
    |-- routes (thin) -> services (business rules and Prisma queries, one DB transaction)
    |-- serves the built React files in production
    v
-PostgreSQL: users, sessions, accounts, transactions, allocation_lines
+PostgreSQL: users, sessions, login_attempts, accounts, transactions, allocation_lines
 ```
 
 **Where each rule is enforced**
@@ -56,6 +56,7 @@ erDiagram
 |---|---|---|
 | users | id (UUID); email; display_name; password_hash; role (USER or ADMIN); is_active; created_at; updated_at | email unique and stored lower-case |
 | sessions | id; token_hash (SHA-256); user_id; created_at; expires_at | Deleted with the user; indexed on user_id and expires_at |
+| login_attempts | ip; email; count; reset_at | Primary key (ip, email); CHECK count > 0; indexed on reset_at; rows past reset_at are deleted. No foreign key: unknown emails are counted too |
 | accounts | id; user_id; name; type (CASH, LOAN_TAKEN, LOAN_GIVEN, INCOME, EXPENSE); subtype (WALLET, BANK, CREDIT_CARD, OTHER; nullable); is_archived; created_at | UNIQUE (user_id, name); UNIQUE (user_id, id) to support composite foreign keys; CHECK subtype is valid for type |
 | transactions | id; user_id; kind (PAYMENT, RECEIPT, OPENING_BALANCE); account_id (source); txn_date (DATE); total_amount (BIGINT satang); memo; is_favorite; voided_at; created_at; updated_at | Composite FK (user_id, account_id) to accounts; CHECK total_amount > 0 unless OPENING_BALANCE, and ≤ 10,000,000,000 (100,000,000.00 THB); partial unique index: one active OPENING_BALANCE per account; index (user_id, txn_date DESC, created_at DESC) |
 | allocation_lines | id; transaction_id; user_id; target_account_id; amount (BIGINT); line_no; note | Composite FK (user_id, target_account_id) to accounts; CHECK amount > 0 and ≤ 10,000,000,000; cascade delete from transaction; UNIQUE (transaction_id, line_no) |
@@ -150,7 +151,7 @@ Later features (account management, loans, transfers, edit and void, search, fav
 - **Current user.** Middleware looks up the session by token hash, checks it is unexpired and the user is active, and attaches id and role to the request. `GET /auth/me` returns id, display name, email and role.
 - **Logout.** Deletes the session row and clears the cookie (204). The old token is useless afterwards.
 - **Disabling a user.** Deletes all of that user’s sessions in the same transaction; the active check on every request is a backstop.
-- **Brute force.** Login is limited to 10 failed attempts per 15 minutes per IP and email (429); a successful login clears the count.
+- **Brute force.** Login is limited to 10 failed attempts per 15 minutes per IP and email (429); a successful login clears the count. The count is stored in `login_attempts`, so it survives a restart and is shared by every Cloud Run instance. Behind Cloud Run the IP is the client address from `X-Forwarded-For` (`TRUST_PROXY=1`); without it the header is ignored, so a client cannot forge its address.
 - **CSRF.** SameSite=Lax cookie, state-changing requests must be application/json and pass an Origin check, and CORS is not enabled (same origin).
 - Passwords and session tokens are never logged.
 
@@ -171,6 +172,8 @@ Later features (account management, loans, transfers, edit and void, search, fav
 | APP_TIMEZONE | Asia/Bangkok | Defines today for BR-10 |
 | SEED_DEFAULT_PASSWORD | set locally, not committed | Password for seeded accounts |
 | LOG_LEVEL | info | Log verbosity |
+| TRUST_PROXY | unset (1 on Cloud Run) | Proxy hops to trust for the client IP |
+| APP_COMMIT | set by the image | Commit the image was built from (Docker build argument GIT_SHA) |
 
 `.env` is git-ignored and `.env.example` with placeholders is committed. The server validates its environment at startup with Zod and refuses to start if a value is missing or invalid. The frontend contains no secrets and calls relative `/api` paths. In production, secrets live in GCP Secret Manager and are injected as environment variables; the image contains none.
 

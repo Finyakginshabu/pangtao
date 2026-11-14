@@ -25,7 +25,7 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
   let seededUsers: Awaited<ReturnType<typeof resetDatabase>>;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
   });
 

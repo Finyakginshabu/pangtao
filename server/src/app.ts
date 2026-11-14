@@ -29,7 +29,14 @@ function defaultWebDistDir(): string | null {
   return process.env.NODE_ENV === 'production' && isBuilt ? BUILT_WEB_DIR : null;
 }
 
-const notFound = (_req: Request, _res: Response, next: NextFunction) =>
+/** TRUST_PROXY: a hop count ("1" on Cloud Run) or an Express trust-proxy list ("loopback"). Empty means off. */
+function parseTrustProxy(value: string | undefined): number | string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
+}
+
+const notFound =(_req: Request, _res: Response, next: NextFunction) =>
   next(new AppError(404, 'NOT_FOUND', 'The requested resource was not found'));
 
 export function createApp(options: AppOptions = {}) {
@@ -37,6 +44,15 @@ export function createApp(options: AppOptions = {}) {
   const webDistDir = options.webDistDir === undefined ? defaultWebDistDir() : options.webDistDir;
 
   const app = express();
+  app.disable('x-powered-by');
+
+  // Behind Cloud Run's front end the client address is the last X-Forwarded-For entry, so
+  // TRUST_PROXY=1 makes req.ip the real client (AC-01.12 limits per client IP + email).
+  // Unset by default: when the app is reached directly, the header is client-controlled.
+  const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+  if (trustProxy !== undefined) {
+    app.set('trust proxy', trustProxy);
+  }
 
   // Request tracking first so every response (including rejections) carries X-Request-Id.
   app.use(requestIdMiddleware);

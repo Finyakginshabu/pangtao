@@ -1,6 +1,6 @@
 # F-01 Authentication and Authorization Foundation: Engineering Contract
 
-Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.4 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
+Requirements: FR-01, FR-02, FR-03, FR-04; BR-01, BR-02; NFR-01, NFR-02, NFR-04, NFR-10 · Depends on: none · Contract version: 1.5 (see [version history](README.md#5-contract-version-history)) · Suggested branch: `feature/F-01-auth-foundation`
 
 Shared conventions, error codes and the Product Definition of Done are in [README.md](README.md).
 
@@ -71,6 +71,7 @@ Shared conventions, error codes and the Product Definition of Done are in [READM
 ### 2.3 Data
 
 - Tables `users` and `sessions` as defined in System-Level SDS. Migration `20261107163413_init_users_sessions` (Prisma timestamp naming).
+- Table `login_attempts` (client IP, email, failed-attempt count, window reset time) holds the AC-01.12 counter, so the limit survives a restart and is shared by every instance of the deployed service. Migration `20261114044417_login_attempts` (Lab 5).
 - Seed data: `admin@example.test` (`ADMIN`), `alice@example.test` (`USER`), `bob@example.test` (`USER`). Passwords hashed with bcrypt cost 12 from `SEED_DEFAULT_PASSWORD`. No plaintext passwords in repository.
 
 ---
