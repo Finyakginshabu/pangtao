@@ -394,6 +394,44 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
         await restartedPrisma.prisma.$disconnect();
       }
     });
+
+    it('AC-01.12 window expiry: an expired count no longer blocks, and every login attempt deletes expired rows', async () => {
+      const past = new Date(Date.now() - 1000);
+      // Alice's own window ran out with 10 failures (one real failure records the address the
+      // server sees for this client; the row is then aged)...
+      expect((await login(app, undefined, 'not-the-password')).status).toBe(401);
+      await prisma.loginAttempt.updateMany({
+        where: { email: 'alice@example.test' },
+        data: { count: 10, resetAt: past },
+      });
+      // ...and another client's stale row is left over.
+      await prisma.loginAttempt.create({
+        data: { ip: '198.51.100.9', email: 'bob@example.test', count: 10, resetAt: past },
+      });
+
+      // A successful login is not blocked by the expired window...
+      const res = await login(app, undefined, TEST_PASSWORD);
+      expect(res.status).toBe(200);
+
+      // ...and no expired row is kept, including the one no client touched (client IPs are not retained).
+      expect(await prisma.loginAttempt.count({ where: { resetAt: { lte: new Date() } } })).toBe(0);
+    });
+
+    it('AC-01.12 a successful login resets the count for that client IP and email', async () => {
+      for (let i = 0; i < 9; i++) {
+        expect((await login(app, undefined, 'not-the-password')).status).toBe(401);
+      }
+      expect(await prisma.loginAttempt.count({ where: { email: 'alice@example.test' } })).toBe(1);
+
+      expect((await login(app, undefined, TEST_PASSWORD)).status).toBe(200);
+      expect(await prisma.loginAttempt.count({ where: { email: 'alice@example.test' } })).toBe(0);
+
+      // A fresh window: ten more failures are all evaluated normally before the limit applies again.
+      for (let i = 0; i < 10; i++) {
+        expect((await login(app, undefined, 'not-the-password')).status).toBe(401);
+      }
+      expect((await login(app, undefined, TEST_PASSWORD)).status).toBe(429);
+    });
   });
 
   // Sprint 1 placeholder (contract f-01 v1.1): exercised on /auth/logout and /auth/login until
