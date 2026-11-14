@@ -1,0 +1,33 @@
+# Secrets never enter the build context (R-02)
+.env
+.env.*
+!.env.example
+**/.env
+*.pem
+*.key
+gha-creds-*.json
+
+# Installed and built inside the image
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+web/.vite
+
+# Not needed to build or run the app
+.git
+.github
+.claude
+CLAUDE*.md
+.vscode
+.idea
+docs
+tests
+coverage
+test-results
+playwright-report
+blob-report
+*.log
+Dockerfile
+.dockerignore
+docker-compose.yml
