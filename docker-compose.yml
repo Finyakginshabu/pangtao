@@ -23,7 +23,7 @@ services:
   #   docker compose --profile app up -d --build
   #
   # Each container gets only the variables it needs (values come from .env through compose
-  # interpolation), like the Cloud Run service and job: the seed password goes to the
+  # interpolation), as the Cloud Run service and job are to (#25): the seed password goes to the
   # migrate job only, and PORT is fixed to the port that is published and health-checked.
 
   # One-off job: apply migrations, then seed the demo users (local runs only; see deployment.md §3).

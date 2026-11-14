@@ -1,12 +1,13 @@
 # syntax=docker/dockerfile:1
 #
 # Pangtao production image: one container serves the API and the built React app
-# (system-sds §1). Used unchanged by docker compose, CI and Cloud Run.
+# (system-sds §1). Used by docker compose; CI (#24) and Cloud Run (#25, #27) are to use it unchanged.
 #
-# - Settings come only from the environment at run time (R-02); nothing is baked in.
+# - Settings come from the environment at run time (R-02). No secret or .env is baked in;
+#   NODE_ENV, PORT and APP_COMMIT are defaults the environment can override.
 # - The same image runs the service (default CMD) and the one-off database job:
 #     npx prisma migrate deploy              (every release)
-#     npx prisma db seed                     (first deploy only, deployment.md §3)
+#     npx prisma db seed                     (Cloud Run: first deploy only; compose: every up; deployment.md §3)
 # - Build with the commit so the running release can be identified (R-08):
 #     docker build --build-arg GIT_SHA=$(git rev-parse HEAD) -t pangtao:local .
 # - Needs BuildKit (default since Docker 23; buildx in GitHub Actions) for the npm cache mounts.
@@ -20,8 +21,9 @@ FROM ${NODE_IMAGE} AS base
 WORKDIR /app
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
     NPM_CONFIG_FUND=false
-# openssl: Prisma engines. tini: PID 1, forwards SIGTERM to Node, which then shuts down
-# gracefully (server/src/index.ts). Node as PID 1 would not receive the default handler.
+# openssl: Prisma engines. tini: PID 1, forwards signals to its child and reaps zombie
+# processes, which matters for the `sh -c` / npx / tsx chain of the migrate job. The server
+# shuts down gracefully on SIGTERM through its own handler (server/src/index.ts).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl tini \
  && rm -rf /var/lib/apt/lists/*

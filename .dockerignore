@@ -1,11 +1,12 @@
-# Secrets never enter the build context (R-02)
-.env
-.env.*
-!.env.example
+# Secrets never enter the build context (R-02), at any depth
 **/.env
-*.pem
-*.key
-gha-creds-*.json
+**/.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/.npmrc
+**/gha-creds-*.json
 
 # Installed and built inside the image
 node_modules
@@ -17,8 +18,6 @@ web/.vite
 # Not needed to build or run the app
 .git
 .github
-.claude
-CLAUDE*.md
 .vscode
 .idea
 docs
@@ -27,7 +26,7 @@ coverage
 test-results
 playwright-report
 blob-report
-*.log
+**/*.log
 Dockerfile
 .dockerignore
 docker-compose.yml
