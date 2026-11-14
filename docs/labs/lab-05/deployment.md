@@ -29,16 +29,17 @@ Every setting is read from the environment (R-02). `.env.example` lists them wit
 | Variable | Purpose | Secret? | Local value from | Cloud value from |
 |---|---|---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string | **Yes** | `.env` | Secret Manager _(#25)_ |
-| `SEED_DEFAULT_PASSWORD` | Password of the synthetic seed users (admin, alice, bob). Seed and tests refuse to run without it | **Yes** | `.env` | Secret Manager, migrate/seed job only _(#25)_ |
+| `SEED_DEFAULT_PASSWORD` | Password of the synthetic seed users (admin, alice, bob). Seed and tests refuse to run without it | **Yes** | `.env` | Secret Manager, given only to the one-time seed run after the first deploy (§3) _(#25)_ |
 | `NODE_ENV` | `production` serves the SPA, forces secure cookies and turns off the localhost CSRF exception | No | `.env` | `production` |
 | `PORT` | HTTP listen port | No | `.env` (8080) | Injected by Cloud Run (8080) |
-| `TRUST_PROXY` | Proxy hops to trust for the client IP in the login rate limit (AC-01.12). Unset means `X-Forwarded-For` is ignored | No | Empty (the app is reached directly) | `1` (Cloud Run's front end appends the client IP) |
+| `TRUST_PROXY` | Proxy hops to trust for the client IP in the login rate limit (AC-01.12). Unset, `0` or `false` means `X-Forwarded-For` is ignored; `true` and malformed values stop the server at startup | No | Empty (the app is reached directly) | `1` (Cloud Run's front end appends the client IP) |
 | `SESSION_TTL_HOURS` | Session lifetime | No | `.env` | Default 8 |
 | `COOKIE_SECURE` | Secure cookie flag outside production (always on in production) | No | `.env` | Not needed |
 | `BCRYPT_COST` | bcrypt rounds (≥ 12, NFR-01) | No | `.env` | Default 12 |
 | `APP_TIMEZONE` | Day boundaries for transaction dates (BR-10) | No | `.env` | Default `Asia/Bangkok` |
+| `APP_COMMIT` | Commit the running build was made from; printed at startup | No | Unset (nothing is printed) | Set by the image from the Docker build argument `GIT_SHA` _(#23, #27)_ |
 | `LOG_LEVEL` | Reserved; not read by the code yet | No | `.env` | Not set |
-| `TEST_DATABASE_URL` | Optional test database (tests and CI only) | Local: no | `.env` | CI only _(#24)_ |
+| `TEST_DATABASE_URL` | Optional test database (tests and CI only); its name must end in `_test` | No (local or CI throwaway database) | `.env`, or derived from `DATABASE_URL` | CI only _(#24)_ |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Local PostgreSQL container | Local only | `.env` | Not used (Cloud SQL) |
 
 ## 3. Commands
