@@ -35,7 +35,7 @@ describe('F-03 Accounts and Balances (STS)', () => {
   const getAccounts = (token: string) => request(app).get(ACCOUNTS_URL).set('Cookie', [`sid=${token}`]);
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
   });

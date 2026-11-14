@@ -72,6 +72,7 @@ Baseline v1.0 contains 25 FR, 16 BR and 10 NFR. Every one is mapped to a feature
 | v1.3 | 12 Nov 2026 | System-Level SDS §1 corrected to match the code: services call Prisma directly (no separate repository layer), the route guard is `access(...)`, the repository layout lists `tests/unit`, `tests/helpers` and `scripts/`, the runtime is Node.js 20 or later, and brute-force limiting counts failed attempts only (as SRS NFR-10 and F-01 state). Feature inventory and sprint README list BR-01 for F-07, matching the F-07 contract and this matrix. F-01 contract v1.4: §2.2 aligned with web app route guarding (Administrator on User page redirected to `/admin/users`, API 401 redirects to `/login`). §3 below added with actual Sprint 1 test results. Product DoD 1.1 and F-01 contract 1.3–1.4 (sprint README §5): results are recorded in the PR and, from Lab 5, in CI; the committed per-feature evidence folder is removed and kept in git history. No requirement added or dropped. FR-08 is traced to F-03 (accounts and balances API) and F-08 (income/expense totals), and the verification record names the feature baseline plus this documentation commit rather than `cec8b61` alone | Pending teammate review |
 | v1.4 | 13 Nov 2026 | F-07 contract v1.1: TEST-07.9 (E) added for the empty and error states of AC-07.6; history lists non-voided transactions until F-13 delivers BR-12; real index name `transactions_user_id_txn_date_created_at_idx` in §2.3 and §5. No requirement added or dropped | Pending teammate review (F-07 PR) |
 | v1.5 | 13 Nov 2026 | F-08 contract 1.0: AC-08.1–AC-08.9 verified at unit, API and E2E levels; §3 records the F-08 failing-first and implementation commits. No requirement added or dropped | Pending teammate review (F-08 PR) |
+| v1.6 | 14 Nov 2026 | F-01 contract v1.5 (Lab 5): the AC-01.12 counter is stored in the new `login_attempts` table and, behind Cloud Run, keyed by the client IP from `X-Forwarded-For` (`TRUST_PROXY`). System-Level SDS §1, §2, §6 and §7 updated to match. No requirement added or dropped | Pending teammate review (Lab 5 PR) |
 
 All assumptions and decisions (A-01–A-04, D-01–D-07) are fully resolved and agreed by the team; zero open items remain.
 
@@ -85,7 +86,7 @@ Actual tests and results for every Sprint 1 acceptance criterion. Automated test
 |---|---|---|---|---|
 | AC-01.1 to AC-01.8 | TEST-01.1 to TEST-01.8 | A | `tests/api/auth.api.test.ts` | PASS |
 | AC-01.9 | TEST-07.4 (f-01 v1.1) | A | `tests/api/transaction-history.api.test.ts` | PASS; failing-first `4a8d6fe` |
-| AC-01.10 to AC-01.13 | TEST-01.10 to TEST-01.13 | A | `tests/api/auth.api.test.ts` | PASS |
+| AC-01.10 to AC-01.13 | TEST-01.10 to TEST-01.13 | A | `tests/api/auth.api.test.ts` | PASS; extra AC-01.12 cases behind a proxy and across a restart (f-01 v1.5) failing-first `9e5398a` |
 | AC-01.14 | TEST-01.14 | E | `tests/e2e/auth.spec.ts` | PASS |
 | AC-02.1 to AC-02.3 | TEST-02.1 to TEST-02.3 | A | `tests/api/admin.api.test.ts` | PASS |
 | AC-02.4 | TEST-02.4 | A, E | `tests/api/admin.api.test.ts` and `tests/e2e/admin-users.spec.ts` | PASS at both levels |

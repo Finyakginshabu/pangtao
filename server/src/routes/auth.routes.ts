@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction, CookieOptions } from 'express'
 import { LoginSchema } from '../schemas/auth.schema.js';
 import { authService } from '../services/auth.service.js';
 import { access } from '../middleware/route-guard.middleware.js';
-import { loginRateLimiter } from '../middleware/rate-limit.middleware.js';
+import { clientIp, loginRateLimiter } from '../middleware/rate-limit.middleware.js';
 
 const router = Router();
 
@@ -23,8 +23,8 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dto = LoginSchema.parse(req.body);
-      const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-      const result = await authService.login(clientIp, dto);
+      const ip = clientIp(req);
+      const result = await authService.login(ip, dto);
 
       const sessionTtlHours = parseInt(process.env.SESSION_TTL_HOURS || '8', 10);
       res.cookie('sid', result.token, {

@@ -42,6 +42,20 @@ model Session {
   @@map("sessions")
 }
 
+// Failed-login counter for the AC-01.12 rate limit (10 per 15 minutes per client IP + email).
+// Stored in the database, not in process memory, so the count survives a restart and is
+// shared by every Cloud Run instance (Lab 5 R-04). Rows past reset_at are stale and deleted.
+model LoginAttempt {
+  ip      String
+  email   String
+  count   Int
+  resetAt DateTime @map("reset_at")
+
+  @@id([ip, email])
+  @@index([resetAt])
+  @@map("login_attempts")
+}
+
 // ---------------------------------------------------------------------------
 // Ledger (F-03; system-sds §2). Money is integer satang in BIGINT columns.
 // Balances are derived, never stored (BR-07): there is no balance column.
