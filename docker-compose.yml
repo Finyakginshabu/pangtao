@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-pangtao_db}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Local only: the development password is a placeholder, so do not expose it to the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,34 +22,46 @@ services:
   # still starts only PostgreSQL for local development and tests:
   #   docker compose --profile app up -d --build
   #
-  # One-off job, same as the Cloud Run migration job: apply migrations, then seed.
+  # Each container gets only the variables it needs (values come from .env through compose
+  # interpolation), like the Cloud Run service and job: the seed password goes to the
+  # migrate job only, and PORT is fixed to the port that is published and health-checked.
+
+  # One-off job: apply migrations, then seed the demo users (local runs only; see deployment.md §3).
   migrate:
     profiles: ["app"]
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-local}
     image: pangtao:local
     restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: .env
-    environment: &container-env
-      NODE_ENV: production
-      # Inside the compose network the database host is the service name, not localhost.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pangtao_db}
+    environment:
+      <<: &app-env
+        NODE_ENV: production
+        # Inside the compose network the database host is the service name, not localhost.
+        DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pangtao_db}
+        BCRYPT_COST: ${BCRYPT_COST:-12}
+      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-}
     command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed"]
 
   app:
     profiles: ["app"]
     image: pangtao:local
-    container_name: pangtao_app
+    pull_policy: never
     restart: unless-stopped
     depends_on:
       migrate:
         condition: service_completed_successfully
-    env_file: .env
-    environment: *container-env
+    environment:
+      <<: *app-env
+      PORT: "8080"
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Bangkok}
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s

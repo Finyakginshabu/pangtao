@@ -4,17 +4,24 @@
 # (system-sds §1). Used unchanged by docker compose, CI and Cloud Run.
 #
 # - Settings come only from the environment at run time (R-02); nothing is baked in.
-# - The same image runs the service (default CMD) and the migrate/seed job:
-#     npx prisma migrate deploy && npx prisma db seed
-# - Node 22 LTS: npm 10 runs the install scripts bcrypt and Prisma need.
+# - The same image runs the service (default CMD) and the one-off database job:
+#     npx prisma migrate deploy              (every release)
+#     npx prisma db seed                     (first deploy only, deployment.md §3)
+# - Build with the commit so the running release can be identified (R-08):
+#     docker build --build-arg GIT_SHA=$(git rev-parse HEAD) -t pangtao:local .
+# - Needs BuildKit (default since Docker 23; buildx in GitHub Actions) for the npm cache mounts.
 
-ARG NODE_IMAGE=node:22-bookworm-slim
+# Node 22 LTS, pinned by version and digest so a rebuild from the same commit uses the same
+# base. To update: `docker buildx imagetools inspect node:22-bookworm-slim`, then replace both.
+ARG NODE_IMAGE=node:22.23.5-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
 
 # ---- base: OS packages shared by every stage --------------------------------
 FROM ${NODE_IMAGE} AS base
 WORKDIR /app
-# openssl: Prisma engines. tini: PID 1 that forwards SIGTERM so Cloud Run can stop
-# the container gracefully (Node as PID 1 ignores it).
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false
+# openssl: Prisma engines. tini: PID 1, forwards SIGTERM to Node, which then shuts down
+# gracefully (server/src/index.ts). Node as PID 1 would not receive the default handler.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl tini \
  && rm -rf /var/lib/apt/lists/*
@@ -46,10 +53,17 @@ ENV NODE_ENV=production \
 
 COPY --from=prod-deps /app/node_modules node_modules
 COPY prisma prisma
-# server/src is kept because the seed (prisma/seed.ts) imports server/src/env.ts.
-COPY server/src server/src
+# The seed (prisma/seed.ts) imports server/src/env.ts, run by tsx; nothing else in src is used.
+COPY server/src/env.ts server/src/env.ts
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/web/dist web/dist
+
+# Last, so a new commit only rebuilds these metadata layers.
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.title="pangtao" \
+      org.opencontainers.image.source="https://github.com/Finyakginshabu/pangtao" \
+      org.opencontainers.image.revision="${GIT_SHA}"
+ENV APP_COMMIT=${GIT_SHA}
 
 USER node
 EXPOSE 8080
