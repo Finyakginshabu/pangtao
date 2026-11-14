@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { app, createApp } from '../../server/src/app.js';
@@ -318,6 +318,82 @@ describe('F-01 Authentication and Authorization Foundation (STS)', () => {
     // ...and he can still log in successfully.
     const resBob = await post('/api/v1/auth/login').send({ email: 'bob@example.test', password: TEST_PASSWORD });
     expect(resBob.status).toBe(200);
+  });
+
+  // Lab 5 (Cloud Run): requests reach the container through Google's front end, which appends
+  // the real client address to X-Forwarded-For. The "IP" in AC-01.12's IP + email tuple must be
+  // that client address, and the count must not live only in one container's memory (R-04).
+  describe('AC-01.12 login rate limit in a cloud deployment', () => {
+    const login = (target: express.Express, forwardedFor: string | undefined, password: string) => {
+      const req = request(target).post('/api/v1/auth/login').set('Origin', TEST_ORIGIN);
+      if (forwardedFor) req.set('X-Forwarded-For', forwardedFor);
+      return req.send({ email: 'alice@example.test', password });
+    };
+
+    const withTrustProxy = (value: string | undefined) => {
+      const previous = process.env.TRUST_PROXY;
+      if (value === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = value;
+      try {
+        return createApp();
+      } finally {
+        if (previous === undefined) delete process.env.TRUST_PROXY;
+        else process.env.TRUST_PROXY = previous;
+      }
+    };
+
+    it('AC-01.12 behind a trusted proxy (TRUST_PROXY=1): the quota is per client IP, and a forged X-Forwarded-For entry cannot evade it', async () => {
+      const proxied = withTrustProxy('1');
+
+      // Ten failures from client 203.0.113.10. The proxy appends the real address last; the
+      // left-hand entries are whatever the client sent, so they change on every attempt.
+      for (let i = 0; i < 10; i++) {
+        const res = await login(proxied, `198.51.100.${i}, 203.0.113.10`, 'not-the-password');
+        expect(res.status).toBe(401);
+      }
+
+      // Same client, correct password: blocked.
+      const blocked = await login(proxied, '203.0.113.10', TEST_PASSWORD);
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.error.code).toBe('RATE_LIMITED');
+
+      // A different client signing in to the same account is not locked out by the first one.
+      const otherClient = await login(proxied, '192.0.2.44', TEST_PASSWORD);
+      expect(otherClient.status).toBe(200);
+    });
+
+    it('AC-01.12 without TRUST_PROXY: X-Forwarded-For is ignored, so a client cannot forge a fresh quota', async () => {
+      const direct = withTrustProxy(undefined);
+
+      for (let i = 0; i < 10; i++) {
+        const res = await login(direct, `198.51.100.${i}`, 'not-the-password');
+        expect(res.status).toBe(401);
+      }
+
+      const forged = await login(direct, '192.0.2.44', TEST_PASSWORD);
+      expect(forged.status).toBe(429);
+      expect(forged.body.error.code).toBe('RATE_LIMITED');
+    });
+
+    it('AC-01.12 across a restart (R-04): failed attempts are stored in the database, so a restarted server still blocks the 11th attempt', async () => {
+      for (let i = 0; i < 10; i++) {
+        const res = await login(app, undefined, 'not-the-password');
+        expect(res.status).toBe(401);
+      }
+
+      // Simulate a container restart or a second Cloud Run instance: load the server again
+      // with fresh module state (new Express app, new Prisma client, empty in-process memory).
+      vi.resetModules();
+      const restarted = await import('../../server/src/app.js');
+      const restartedPrisma = await import('../../server/src/prisma.js');
+      try {
+        const res11th = await login(restarted.app, undefined, TEST_PASSWORD);
+        expect(res11th.status).toBe(429);
+        expect(res11th.body.error.code).toBe('RATE_LIMITED');
+      } finally {
+        await restartedPrisma.prisma.$disconnect();
+      }
+    });
   });
 
   // Sprint 1 placeholder (contract f-01 v1.1): exercised on /auth/logout and /auth/login until
