@@ -20,7 +20,7 @@ describe('F-02 Admin User Management (STS)', () => {
   let aliceToken: string;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     adminToken = await createTestSession(seededUsers.admin.id);
     aliceToken = await createTestSession(seededUsers.alice.id);

@@ -5,7 +5,7 @@ import {
   generateSessionToken,
   hashSessionToken,
 } from '../utils/hash.util.js';
-import { recordFailedLogin, resetFailedLogin } from '../middleware/rate-limit.middleware.js';
+import { loginAttemptService } from './login-attempt.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { LoginDto } from '../schemas/auth.schema.js';
 
@@ -21,18 +21,18 @@ export class AuthService {
     // Timing attack mitigation: if user does not exist or is inactive, perform dummy comparison
     if (!user || !user.isActive) {
       await dummyBcryptCompare(dto.password);
-      recordFailedLogin(ip, normalizedEmail);
+      await loginAttemptService.recordFailure(ip, normalizedEmail);
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
 
     const isMatch = await comparePassword(dto.password, user.passwordHash);
     if (!isMatch) {
-      recordFailedLogin(ip, normalizedEmail);
+      await loginAttemptService.recordFailure(ip, normalizedEmail);
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
 
     // Login successful: reset rate limiter for this IP & email
-    resetFailedLogin(ip, normalizedEmail);
+    await loginAttemptService.reset(ip, normalizedEmail);
 
     const token = generateSessionToken();
     const tokenHash = hashSessionToken(token);

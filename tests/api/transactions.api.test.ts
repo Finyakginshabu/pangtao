@@ -63,7 +63,7 @@ describe('F-05 Payment and Charge (STS)', () => {
   const aliceRows = () => countLedgerRows(seededUsers.alice.id);
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);
@@ -484,7 +484,7 @@ describe('F-06 Received Money (STS)', () => {
   const aliceRows = () => countLedgerRows(seededUsers.alice.id);
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);
