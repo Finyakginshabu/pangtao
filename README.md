@@ -59,6 +59,18 @@ Follow these 6 steps to run the application and seed the synthetic demo users on
 
 ---
 
+## Run the production container
+
+The production image (the one Cloud Run is to run, #25) runs locally with its database (after step 2 above; stop `npm run dev:server` first or set `APP_PORT` in `.env`, since both use port 8080):
+
+```powershell
+docker compose --profile app up -d --build   # app on http://localhost:8080
+```
+
+Details, checks and the build-only command are in [docs/labs/lab-05/deployment.md](docs/labs/lab-05/deployment.md) §3.
+
+---
+
 ## Seeded Demo Accounts
 
 The seed script creates three deterministic synthetic **users**. All of them log in with the `SEED_DEFAULT_PASSWORD` value you set in `.env`. Alice and Bob each get nine financial accounts (Wallet, Bank Account, Credit Card, Salary, Interest Earned, Dining, Groceries, Electricity, Telecom) with no transactions. The Administrator has no financial accounts.

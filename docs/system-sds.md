@@ -24,7 +24,7 @@ Express application (one container)
    |-- routes (thin) -> services (business rules and Prisma queries, one DB transaction)
    |-- serves the built React files in production
    v
-PostgreSQL: users, sessions, accounts, transactions, allocation_lines
+PostgreSQL: users, sessions, login_attempts, accounts, transactions, allocation_lines
 ```
 
 **Where each rule is enforced**
@@ -34,7 +34,7 @@ PostgreSQL: users, sessions, accounts, transactions, allocation_lines
 | Authentication and role | Middleware: every route declares `access(...)`, built on requireAuth and requireRole | Default deny: a route without a declared role is rejected |
 | Ownership | Every service query filters by the session user id; composite foreign keys in the database | Another user’s id behaves as not found |
 | Request shape | Zod schemas at the route boundary | Unknown fields rejected |
-| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own |
+| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own. An interactive (callback) `$transaction` waits up to 5 s for a pooled connection (`TRANSACTION_OPTIONS` in `server/src/prisma.ts`; Prisma's default is 2 s) and runs for at most Prisma's default 5 s; array-form transactions are not affected |
 | Integrity | Database constraints (NOT NULL, CHECK, foreign keys, unique) | Last line of defence |
 | UI | Convenience only (inline validation, hidden controls) | Never trusted for security or correctness |
 
@@ -50,12 +50,19 @@ erDiagram
     accounts ||--o{ transactions : "is source of"
     transactions ||--o{ allocation_lines : has
     accounts ||--o{ allocation_lines : "is target of"
+    login_attempts {
+        text ip PK
+        text email PK
+        int count
+        timestamp reset_at
+    }
 ```
 
 | Entity | Key fields | Constraints |
 |---|---|---|
 | users | id (UUID); email; display_name; password_hash; role (USER or ADMIN); is_active; created_at; updated_at | email unique and stored lower-case |
 | sessions | id; token_hash (SHA-256); user_id; created_at; expires_at | Deleted with the user; indexed on user_id and expires_at |
+| login_attempts | ip; email; count; reset_at | Primary key (ip, email); CHECK count > 0; indexed on reset_at; rows past reset_at are deleted on the next login attempt. No foreign key: unknown emails are counted too |
 | accounts | id; user_id; name; type (CASH, LOAN_TAKEN, LOAN_GIVEN, INCOME, EXPENSE); subtype (WALLET, BANK, CREDIT_CARD, OTHER; nullable); is_archived; created_at | UNIQUE (user_id, name); UNIQUE (user_id, id) to support composite foreign keys; CHECK subtype is valid for type |
 | transactions | id; user_id; kind (PAYMENT, RECEIPT, OPENING_BALANCE); account_id (source); txn_date (DATE); total_amount (BIGINT satang); memo; is_favorite; voided_at; created_at; updated_at | Composite FK (user_id, account_id) to accounts; CHECK total_amount > 0 unless OPENING_BALANCE, and ≤ 10,000,000,000 (100,000,000.00 THB); partial unique index: one active OPENING_BALANCE per account; index (user_id, txn_date DESC, created_at DESC) |
 | allocation_lines | id; transaction_id; user_id; target_account_id; amount (BIGINT); line_no; note | Composite FK (user_id, target_account_id) to accounts; CHECK amount > 0 and ≤ 10,000,000,000; cascade delete from transaction; UNIQUE (transaction_id, line_no) |
@@ -150,7 +157,7 @@ Later features (account management, loans, transfers, edit and void, search, fav
 - **Current user.** Middleware looks up the session by token hash, checks it is unexpired and the user is active, and attaches id and role to the request. `GET /auth/me` returns id, display name, email and role.
 - **Logout.** Deletes the session row and clears the cookie (204). The old token is useless afterwards.
 - **Disabling a user.** Deletes all of that user’s sessions in the same transaction; the active check on every request is a backstop.
-- **Brute force.** Login is limited to 10 failed attempts per 15 minutes per IP and email (429); a successful login clears the count.
+- **Brute force.** Login is limited to 10 failed attempts per 15 minutes per IP and email (429); a successful login clears the count. The count is stored in `login_attempts`, so it survives a restart and is shared by every Cloud Run instance. Behind Cloud Run the IP is the client address from `X-Forwarded-For` (`TRUST_PROXY=1`); without it the header is ignored, so a client cannot forge its address. Expired windows are deleted on every login attempt.
 - **CSRF.** SameSite=Lax cookie, state-changing requests must be application/json and pass an Origin check, and CORS is not enabled (same origin).
 - Passwords and session tokens are never logged.
 
@@ -160,6 +167,7 @@ Later features (account management, loans, transfers, edit and void, search, fav
 |---|---|---|
 | NODE_ENV | development | Environment mode |
 | PORT | 8080 | HTTP port |
+| APP_PORT | 8080 | Host port of the production container (docker-compose, `app` profile) |
 | POSTGRES_USER | postgres | PostgreSQL user (docker-compose) |
 | POSTGRES_PASSWORD | postgres | PostgreSQL password (docker-compose) |
 | POSTGRES_DB | pangtao_db | PostgreSQL database name (docker-compose) |
@@ -170,13 +178,15 @@ Later features (account management, loans, transfers, edit and void, search, fav
 | BCRYPT_COST | 12 | Password hash cost |
 | APP_TIMEZONE | Asia/Bangkok | Defines today for BR-10 |
 | SEED_DEFAULT_PASSWORD | set locally, not committed | Password for seeded accounts |
-| LOG_LEVEL | info | Log verbosity |
+| LOG_LEVEL | info | Log verbosity (reserved; not read by the code yet) |
+| TRUST_PROXY | unset (1 on Cloud Run) | Proxy hops to trust for the client IP |
+| APP_COMMIT | set by the image | Commit the image was built from (Docker build argument `GIT_SHA`, default `local` under compose) |
 
-`.env` is git-ignored and `.env.example` with placeholders is committed. The server validates its environment at startup with Zod and refuses to start if a value is missing or invalid. The frontend contains no secrets and calls relative `/api` paths. In production, secrets live in GCP Secret Manager and are injected as environment variables; the image contains none.
+`.env` is git-ignored and `.env.example` with placeholders is committed. Required values are read through `requireEnv` (`server/src/env.ts`), which stops with an actionable message when one is missing; Prisma refuses to connect without `DATABASE_URL`, and an invalid `TRUST_PROXY` stops the server at startup. The frontend contains no secrets and calls relative `/api` paths. In production, secrets live in GCP Secret Manager and are injected as environment variables; the image contains none.
 
 ## 8. Deployment plan (designed now, set up in Lab 5)
 
-**Local and Docker.** A multi-stage Dockerfile builds web and server and runs as a non-root user. `docker compose up` starts the app and PostgreSQL 16 with a named volume, so data survives restarts. Migrations run with `prisma migrate deploy` as a release step before the new version receives traffic.
+**Local and Docker.** A multi-stage Dockerfile builds web and server and runs as a non-root user. `docker compose up -d` starts PostgreSQL 16 only (development and tests); `docker compose --profile app up -d --build` also runs the one-off `migrate` job (`prisma migrate deploy` and the seed, local only) and the app on `localhost:${APP_PORT}` (default 8080), which starts only after `migrate` succeeds. Data is in the `pgdata` named volume, so it survives restarts. On Cloud Run, `prisma migrate deploy` is to run as a release job before the new revision receives traffic (TBD, #25 and #27).
 
 | GCP component | Use |
 |---|---|
@@ -187,4 +197,4 @@ Later features (account management, loans, transfers, edit and void, search, fav
 | GitHub Actions with Workload Identity Federation | CI on pull requests; on merge to main, build, push, migrate and deploy, with no long-lived cloud keys in GitHub |
 | Cloud Logging | Application logs with request ids |
 
-**CI quality gate.** Every pull request runs install, lint, type-check, unit and API tests against a PostgreSQL service container, and build; the Playwright end-to-end suite runs on the staging-to-main release PR. Branch protection requires these checks and one teammate approval before merge. Details will follow the Lab 5 instructions.
+**CI quality gate.** `.github/workflows/ci.yml` runs on every pull request into `main` or `sprint-*-staging` as four parallel checks: lint, type-check and build; unit and API tests (with the 80% service-layer coverage gate) against a PostgreSQL service container; the Playwright end-to-end suite against a second PostgreSQL service container; and the production image build. Each test job writes a pass/fail/skip table and the names of failed tests to the run summary. Making these checks required, together with one teammate approval, is set up in Lab 5 #26 (TBD).

@@ -81,7 +81,7 @@ describe('F-08 Income and Expense Summary (STS)', () => {
   let demo: Awaited<ReturnType<typeof insertSummaryDemoLedger>>;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);
@@ -212,7 +212,7 @@ describe('F-08 summary API: further rules', () => {
   let demo: Awaited<ReturnType<typeof insertSummaryDemoLedger>>;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);

@@ -63,7 +63,7 @@ describe('F-04 Opening Balance (STS)', () => {
   let ids: Record<string, string>;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);

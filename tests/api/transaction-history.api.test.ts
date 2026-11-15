@@ -44,7 +44,7 @@ describe('F-07 Transaction History (STS)', () => {
   let demo: Awaited<ReturnType<typeof insertDemoLedger>>;
 
   beforeEach(async () => {
-    clearRateLimitStore();
+    await clearRateLimitStore();
     seededUsers = await resetDatabase();
     aliceToken = await createTestSession(seededUsers.alice.id);
     bobToken = await createTestSession(seededUsers.bob.id);
