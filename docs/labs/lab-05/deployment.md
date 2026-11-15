@@ -1,6 +1,6 @@
 # Pangtao Deployment (Lab 5)
 
-How Pangtao is built, configured, deployed and released. Covers R-01, R-02, R-04 and R-05 of the Lab 5 handout, and part of R-08 (the image records its commit; release procedure _TBD, #27_). Sections marked _TBD_ are filled in by the issue named next to them.
+How Pangtao is built, configured, deployed and released. Covers R-01, R-02, R-04 and R-05 of the Lab 5 handout, the C-01 and C-03 checks (§3; C-01 run links in `docs/traceability.md` §3), and part of R-08 (the image records its commit; release procedure _TBD, #27_). Sections marked _TBD_ are filled in by the issue named next to them.
 
 | Item | Value |
 |---|---|
