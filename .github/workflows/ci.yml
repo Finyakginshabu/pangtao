@@ -1,11 +1,15 @@
-# CI (Lab 5 #4, R-05, C-01): build and automated tests on every Pull Request.
+# CI (Lab 5 #24, R-05, C-01): build and automated tests on every Pull Request.
 #
 # Four parallel jobs, each its own check on the PR:
 #   lint-typecheck-build : lint, both type-checks, build
 #   unit-api-tests       : Vitest unit + API tests against a PostgreSQL service, 80% service-layer coverage gate
 #   e2e                  : Playwright end-to-end suite against a PostgreSQL service
-#   docker-build         : the production image builds and records the commit
-# Each test job writes a pass/fail/skip table to the run's step summary.
+#   docker-build         : the production image builds and records the commit under test
+# Each test job writes a pass/fail/skip table, plus the names of failed and flaky tests, to the
+# run's step summary.
+#
+# On pull_request, the checkout and github.sha are GitHub's merge of the PR into its base branch
+# (refs/pull/N/merge), not the PR head, so CI tests what the merge would produce.
 #
 # No repository secrets are used: the seed password is random per run and the database is a
 # throw-away service container, so the workflow also runs for pull requests from forks.

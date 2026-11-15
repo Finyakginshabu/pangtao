@@ -79,9 +79,9 @@ npm run verify                # lint, type-check, unit + API with coverage gate,
 | Lint, type-check, build | `npm run lint`, `npm run typecheck`, `npm run build` |
 | Unit and API tests | `vitest run --coverage` against a `postgres:16-alpine` service; fails below 80% service-layer line coverage (NFR-09) |
 | End-to-end tests | `prisma migrate deploy`, `prisma db seed`, then `playwright test` (Chromium; a failed test is retried twice and reported as flaky if the retry passes) |
-| Docker image build | `docker build` with `GIT_SHA` set to the PR commit, then checks the image's revision label equals that commit |
+| Docker image build | `docker build` with `GIT_SHA` set to the commit under test (`github.sha`), then checks the image's revision label equals that commit |
 
-Each test job adds a pass/fail/skip table to the run's summary page; the coverage report and, on E2E failure, the Playwright traces are uploaded as run artifacts. The environment is `.env.example` plus a random `SEED_DEFAULT_PASSWORD`. Required-check settings are _TBD (#26)_.
+On a pull request, every job checks out GitHub's merge of the PR into its base branch (`refs/pull/N/merge`), so the commit under test is that merge commit, not the PR's head commit. Each test job adds a pass/fail/skip table to the run's summary page, followed by the names of any failed tests and of end-to-end tests that passed only after a retry; the coverage report and, on E2E failure, the Playwright traces are uploaded as run artifacts. The environment is `.env.example` plus a random `SEED_DEFAULT_PASSWORD`. Required-check settings are _TBD (#26)_.
 
 ### Production container from a clean clone (C-03)
 

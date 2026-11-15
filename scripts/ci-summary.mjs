@@ -3,10 +3,14 @@
 //   node scripts/ci-summary.mjs --vitest vitest-report.json --coverage coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
 //   node scripts/ci-summary.mjs --playwright playwright-report.json >> "$GITHUB_STEP_SUMMARY"
 //
-// A missing or unreadable report prints "not run" instead of failing, so the summary step can run
-// with `if: always()` after a step that crashed before writing its report.
+// Prints a pass/fail/skip table, then the names of failed tests (and of flaky end-to-end tests),
+// then service-layer coverage. A missing or unreadable report prints "not run" instead of failing,
+// so the summary step can run with `if: always()` after a step that crashed before writing its report.
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
+
+const MAX_LISTED = 50;
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -23,7 +27,43 @@ function readJson(file) {
   }
 }
 
+const relative = (file) => path.relative(process.cwd(), file).replaceAll('\\', '/');
+
+// Vitest's JSON report: one entry per test file. A file that failed to load has status "failed"
+// and no failed assertions, so it is listed by file name.
+function vitestFailures(report) {
+  const names = [];
+  for (const file of report.testResults ?? []) {
+    const failed = (file.assertionResults ?? []).filter((t) => t.status === 'failed');
+    for (const t of failed) {
+      names.push([relative(file.name), ...(t.ancestorTitles ?? []), t.title].join(' › '));
+    }
+    if (file.status === 'failed' && failed.length === 0) {
+      names.push(`${relative(file.name)} (file failed to run)`);
+    }
+  }
+  return names;
+}
+
+// Playwright's JSON report: nested suites (file, then describe blocks) holding specs; each spec
+// has one test per project whose status is expected, unexpected, flaky or skipped.
+function playwrightByStatus(report, status) {
+  const names = [];
+  const walk = (suite, titles) => {
+    const here = suite.title ? [...titles, suite.title] : titles;
+    for (const spec of suite.specs ?? []) {
+      if ((spec.tests ?? []).some((t) => t.status === status)) {
+        names.push([...here, spec.title].join(' › '));
+      }
+    }
+    for (const child of suite.suites ?? []) walk(child, here);
+  };
+  for (const suite of report.suites ?? []) walk(suite, []);
+  return names;
+}
+
 const rows = [];
+const lists = [];
 
 const vitest = readJson(flag('vitest'));
 if (flag('vitest')) {
@@ -34,6 +74,7 @@ if (flag('vitest')) {
       vitest.numFailedTests,
       vitest.numPendingTests + (vitest.numTodoTests ?? 0),
     ]);
+    lists.push(['Failed unit + API tests', vitestFailures(vitest)]);
   } else {
     rows.push(['Unit + API (Vitest)', 'not run', '', '']);
   }
@@ -43,8 +84,13 @@ const playwright = readJson(flag('playwright'));
 if (flag('playwright')) {
   if (playwright) {
     const { expected = 0, unexpected = 0, skipped = 0, flaky = 0 } = playwright.stats ?? {};
-    // A flaky test passed only on a retry: count it as passed here and call it out below.
+    // A flaky test passed only on a retry: count it as passed here and name it below.
     rows.push(['End-to-end (Playwright)', expected + flaky, unexpected, skipped]);
+    lists.push(['Failed end-to-end tests', playwrightByStatus(playwright, 'unexpected')]);
+    lists.push([
+      'Flaky end-to-end tests (passed only after a retry)',
+      playwrightByStatus(playwright, 'flaky'),
+    ]);
   } else {
     rows.push(['End-to-end (Playwright)', 'not run', '', '']);
   }
@@ -59,8 +105,12 @@ if (rows.length > 0) {
   lines.push('');
 }
 
-if (playwright?.stats?.flaky > 0) {
-  lines.push(`> ${playwright.stats.flaky} end-to-end test(s) passed only after a retry (flaky).`, '');
+for (const [heading, names] of lists) {
+  if (names.length === 0) continue;
+  lines.push(`**${heading}** (${names.length}):`, '');
+  for (const name of names.slice(0, MAX_LISTED)) lines.push(`- \`${name.replaceAll('`', "'")}\``);
+  if (names.length > MAX_LISTED) lines.push(`- … and ${names.length - MAX_LISTED} more (see the job log)`);
+  lines.push('');
 }
 
 if (flag('coverage')) {
