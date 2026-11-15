@@ -4,10 +4,12 @@ Run (repo root):  python3 -m unittest discover -s deploy/tests -p 'test_smoke.py
 
 Covers: public checks pass + login skipped without credentials; a database that
 is not ready fails even if HTTP answers; the session is logged out even if a
-check fails.
+check fails; a failing logout neither hides the original error nor prints PASS.
 CHANGE ME: if you change the endpoints in smoke_test.py, update `response()` below.
 """
 import importlib.util
+from contextlib import redirect_stdout
+import io
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -55,6 +57,28 @@ class SmokeTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Login smoke'):
                 smoke.check('https://demo.test')
             self.assertEqual(req.call_args.args[1], '/api/v1/auth/logout')
+
+    @patch.dict('os.environ', {'SMOKE_EMAIL': 'admin@example.test', 'SMOKE_PASSWORD': 'test-only'}, clear=True)
+    def test_failing_logout_keeps_original_error_and_does_not_print_pass(self):
+        logout_error = smoke.urllib.error.HTTPError('/api/v1/auth/logout', 401, 'Unauthorized', {}, io.BytesIO(b''))
+
+        def broken_me_and_logout(base, path, data=None, cookies=None):
+            if path == '/api/v1/auth/me':
+                raise ValueError('Broken response')
+            if path == '/api/v1/auth/logout':
+                raise logout_error
+            return self.response(base, path, data, cookies)
+        output = io.StringIO()
+        try:
+            with patch.object(smoke, 'request', side_effect=broken_me_and_logout), \
+                    redirect_stdout(output):
+                with self.assertRaisesRegex(RuntimeError, 'Login smoke') as caught:
+                    smoke.check('https://demo.test')
+        finally:
+            logout_error.close()
+        self.assertNotIsInstance(caught.exception.__cause__, smoke.urllib.error.HTTPError)
+        self.assertNotIn('PASS logout', output.getvalue())
+        self.assertIn('WARN logout failed', output.getvalue())
 
 
 if __name__ == '__main__':

@@ -33,10 +33,21 @@ DRY_RUN="${DRY_RUN:-0}"
 REGION="${REGION:-asia-southeast1}"
 
 run_cmd() {
+  # Same logging as deploy/deploy.sh: quoted arguments, --password= redacted.
+  local arg
   if [ "$DRY_RUN" = "1" ]; then
-    echo "[DRY_RUN] $*"
+    printf '[DRY_RUN] '
   else
-    echo "+ $*"
+    printf '+ '
+  fi
+  for arg in "$@"; do
+    case "$arg" in
+      --password=*) printf '%s ' '--password=<REDACTED>' ;;
+      *) printf '%q ' "$arg" ;;
+    esac
+  done
+  printf '\n'
+  if [ "$DRY_RUN" != "1" ]; then
     "$@"
   fi
 }
@@ -97,6 +108,13 @@ run_cmd gcloud sql instances delete "$SQL_INSTANCE" --project "$PROJECT_ID" --qu
 run_cmd gcloud artifacts repositories delete "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID" --quiet || true
 run_cmd gcloud secrets delete "$SECRET_DB_URL" --project "$PROJECT_ID" --quiet || true
 run_cmd gcloud secrets delete "$SECRET_SEED_PASS" --project "$PROJECT_ID" --quiet || true
+# Remove the project-level role granted by deploy.sh, so no deleted:serviceAccount
+# entry is left behind in the project IAM policy.
+run_cmd gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/cloudsql.client" \
+  --condition=None \
+  --project "$PROJECT_ID" --quiet || true
 run_cmd gcloud iam service-accounts delete "$SA_EMAIL" --project "$PROJECT_ID" --quiet || true
 
 echo "Teardown completed."

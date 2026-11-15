@@ -2,35 +2,44 @@
 set -euo pipefail
 
 # ==============================================================================
-# Pangtao — Idempotent Google Cloud Run Deployment Script (Lab 5, #25)
+# Pangtao — Google Cloud Run provisioning and first deployment (Lab 5, #25)
 # ==============================================================================
 # Usage:
-#   ./deploy/deploy.sh [--demo]
+#   ./deploy/deploy.sh [--demo] [--force-image] [--seed-once]
 #
-#   --demo  also seed the demo users (admin/alice/bob) after migrating, so the
-#           service can be logged into for the demo. Without it the database is
-#           migrated but left empty.
+#   --demo         seed the demo users (admin/alice/bob) on the FIRST deployment
+#                  only (the migrate job must not exist yet). Ignored on re-runs;
+#                  use --seed-once to seed again.
+#   --force-image  rebuild :latest from this working tree and redeploy even when
+#                  the Cloud Run service already exists. That replaces the image
+#                  a release deployed, so use it only on purpose.
+#   --seed-once    seed the demo users explicitly (the migrate job must exist).
+#                  Runs migrate + seed once, then detaches the seed secret again.
+#                  It resets the three seed users.
 #
 # Environment Variables (Optional):
 #   PROJECT_ID   GCP Project ID (defaults to active gcloud config project)
 #   REGION       GCP Region (default: asia-southeast1)
 #   DRY_RUN      Set DRY_RUN=1 to print all gcloud commands without executing
 #
-# WHAT THIS SCRIPT DOES  (one-time / manual first setup; safe to re-run)
-#   Creates every cloud resource the app needs and does the first deployment:
+# WHAT THIS SCRIPT DOES  (provisioning is idempotent; safe to re-run)
 #   1 enable APIs     2 Artifact Registry  3 Cloud SQL instance  4 database
-#   5 runtime SA+IAM  6 DB user + DATABASE_URL secret  7 seed password
-#   8 build image     9 migrate+seed job   10 Cloud Run service
-#   After this, routine releases are done by GitHub Actions (deploy.yml ->
-#   deploy/release.sh), which only UPDATES these resources.
+#   5 runtime SA+IAM  6 DB user + DATABASE_URL secret
+#   7 build image     8 migrate job       9 optional one-off seed
+#   10 Cloud Run service
+#   Steps 7-10 are skipped when the service already exists (unless
+#   --force-image), so a re-run never rolls the service back to the local
+#   working tree. Routine releases are done by release.sh, which the deploy
+#   workflow (#27, TBD) calls with an image built from the commit.
 #
 # ⭐ IMPORTANT
-#   - Idempotent: existing resources/secrets are reused, never overwritten
-#     (a re-run does not replace credentials).
+#   - Existing resources/secrets are reused, never overwritten; a secret counts
+#     as done only when it has an ENABLED version, so a failed `versions add`
+#     is repaired on the next run.
 #   - Passwords are generated with openssl and live only in Secret Manager;
 #     they are never printed (run_cmd redacts --password=...).
 #   - Preview first with:  DRY_RUN=1 ./deploy/deploy.sh   (no gcloud calls)
-#   - Run from the REPO ROOT (step 8 builds the root Dockerfile).
+#   - Run from the REPO ROOT (step 7 builds the root Dockerfile).
 #   - Offline test: deploy/tests/test_deploy_stub.sh
 #
 # REFERENCES
@@ -44,8 +53,7 @@ set -euo pipefail
 #   Resource names, secrets, the database URL, the migrate/seed commands and the
 #   container port below match this repository. If you rename anything here,
 #   rename it in deploy/release.sh, deploy/teardown.sh, deploy/tests/* and
-#   .github/workflows/deploy.yml too — otherwise later steps cannot find the
-#   resource.
+#   .github/workflows/deploy.yml (when #27 adds it) too.
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -55,15 +63,18 @@ DRY_RUN="${DRY_RUN:-0}"
 # CHANGE ME: default region if your group uses another one.
 REGION="${REGION:-asia-southeast1}"
 SEED_DEMO_DATA="false"
+FORCE_IMAGE="false"
+SEED_ONCE="false"
+SEEDED="false"
 
 for arg in "$@"; do
   case "$arg" in
-    --demo)
-      SEED_DEMO_DATA="true"
-      ;;
+    --demo)        SEED_DEMO_DATA="true" ;;
+    --force-image) FORCE_IMAGE="true" ;;
+    --seed-once)   SEED_ONCE="true" ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Usage: $0 [--demo]" >&2
+      echo "Usage: $0 [--demo] [--force-image] [--seed-once]" >&2
       exit 1
       ;;
   esac
@@ -104,7 +115,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# Resource names (pangtao-*). Used by deploy.yml / release.sh / teardown.sh and
+# Resource names (pangtao-*). Used by release.sh / teardown.sh / the tests and
 # the lab guide's later steps; keep them in sync everywhere.
 # CHANGE ME: rename only if your group uses its own naming.
 # ------------------------------------------------------------------------------
@@ -121,19 +132,164 @@ IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:l
 
 # Secret Manager secret names (values are never stored in this repo).
 #   DATABASE_URL           read by the server and by the migrate job
-#   SEED_DEFAULT_PASSWORD  read by prisma/seed.ts (demo users); --demo only
+#   SEED_DEFAULT_PASSWORD  read by prisma/seed.ts; attached only while seeding
 SECRET_DB_URL="pangtao-database-url"
 SECRET_SEED_PASS="pangtao-seed-password"
 
 GENERATED_SEED_PASSWORD=""
 
 echo "=================================================================="
-echo "Pangtao Cloud Run Deployment"
+echo "Pangtao Cloud Run provisioning"
 echo "Project : ${PROJECT_ID}"
 echo "Region  : ${REGION}"
 echo "Demo    : ${SEED_DEMO_DATA}"
 echo "Dry Run : ${DRY_RUN}"
 echo "=================================================================="
+
+# ------------------------------------------------------------------------------
+# What already exists? A dry run assumes a first deployment so it prints every
+# command.
+# ------------------------------------------------------------------------------
+SERVICE_EXISTS="false"
+JOB_EXISTS="false"
+if [ "$DRY_RUN" != "1" ]; then
+  if gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    SERVICE_EXISTS="true"
+  fi
+  if gcloud run jobs describe "$MIGRATE_JOB_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    JOB_EXISTS="true"
+  fi
+fi
+echo "Service exists: ${SERVICE_EXISTS} | Migrate job exists: ${JOB_EXISTS}"
+
+# ==============================================================================
+# Helpers
+# ==============================================================================
+
+# True when the secret exists AND has an ENABLED version. A secret whose
+# `versions add` failed (partial run) is treated as missing, so the next run
+# repairs it instead of leaving an empty secret that breaks `:latest`.
+secret_has_version() {
+  local name="$1"
+  gcloud secrets versions list "$name" \
+    --filter='state=ENABLED' --limit=1 --format='value(name)' \
+    --project "$PROJECT_ID" 2>/dev/null | grep -q .
+}
+
+# Create the DB user (or reset its password) and store the matching DATABASE_URL.
+# The password inside the URL is the DB user's password (asserted by the tests).
+ensure_db_secret() {
+  if [ "$DRY_RUN" = "1" ]; then
+    run_cmd gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID"
+    run_cmd gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)"
+    run_cmd gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="<GENERATED_HEX_PASSWORD>" --project "$PROJECT_ID"
+    run_cmd gcloud secrets create "$SECRET_DB_URL" --replication-policy="automatic" --project "$PROJECT_ID"
+    run_cmd gcloud secrets versions add "$SECRET_DB_URL" --data-file=- --project "$PROJECT_ID"
+    return 0
+  fi
+  if secret_has_version "$SECRET_DB_URL"; then
+    return 0
+  fi
+  local db_pass db_url
+  db_pass="$(openssl rand -hex 24)"
+  if gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)" | grep -qx "$DB_USER"; then
+    run_cmd gcloud sql users set-password "$DB_USER" --instance="$SQL_INSTANCE" --password="$db_pass" --project "$PROJECT_ID"
+  else
+    run_cmd gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="$db_pass" --project "$PROJECT_ID"
+  fi
+  # The Cloud SQL Unix socket that Cloud Run mounts at /cloudsql/PROJECT:REGION:INSTANCE.
+  db_url="postgresql://${DB_USER}:${db_pass}@localhost/${DB_NAME}?host=/cloudsql/${SQL_CONN_NAME}&schema=public&connection_limit=3"
+  if ! gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    run_cmd gcloud secrets create "$SECRET_DB_URL" --replication-policy="automatic" --project "$PROJECT_ID"
+  fi
+  printf "%s" "$db_url" | gcloud secrets versions add "$SECRET_DB_URL" --data-file=- --project "$PROJECT_ID"
+}
+
+# Create the seed password secret if it has no ENABLED version.
+ensure_seed_secret() {
+  if [ "$DRY_RUN" = "1" ]; then
+    run_cmd gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID"
+    run_cmd gcloud secrets create "$SECRET_SEED_PASS" --replication-policy="automatic" --project "$PROJECT_ID"
+    run_cmd gcloud secrets versions add "$SECRET_SEED_PASS" --data-file=- --project "$PROJECT_ID"
+    return 0
+  fi
+  if secret_has_version "$SECRET_SEED_PASS"; then
+    return 0
+  fi
+  GENERATED_SEED_PASSWORD="$(openssl rand -base64 16 | tr -d '/+=' | cut -c1-14)Aa1!"
+  if ! gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    run_cmd gcloud secrets create "$SECRET_SEED_PASS" --replication-policy="automatic" --project "$PROJECT_ID"
+  fi
+  printf "%s" "$GENERATED_SEED_PASSWORD" | gcloud secrets versions add "$SECRET_SEED_PASS" --data-file=- --project "$PROJECT_ID"
+}
+
+# Seed once: attach the seed password to the migrate job, run migrate + seed,
+# then ALWAYS detach it and reset the job to migrate-only (even on failure), so
+# no later release re-seeds or resets the seed users (deployment.md §2, §3).
+seed_demo_users() {
+  echo "Seeding the demo users once (npx prisma db seed)..."
+  ensure_seed_secret
+  run_cmd gcloud secrets add-iam-policy-binding "$SECRET_SEED_PASS" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project "$PROJECT_ID" --quiet
+  run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
+    --update-secrets "SEED_DEFAULT_PASSWORD=${SECRET_SEED_PASS}:latest" \
+    --args "-c,npx prisma migrate deploy && npx prisma db seed" \
+    --region "$REGION" --project "$PROJECT_ID" --quiet
+  local failed="false"
+  run_cmd gcloud run jobs execute "$MIGRATE_JOB_NAME" \
+    --region "$REGION" --wait --project "$PROJECT_ID" || failed="true"
+  run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
+    --remove-secrets=SEED_DEFAULT_PASSWORD \
+    --args "-c,npx prisma migrate deploy" \
+    --region "$REGION" --project "$PROJECT_ID" --quiet
+  run_cmd gcloud secrets remove-iam-policy-binding "$SECRET_SEED_PASS" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project "$PROJECT_ID" --quiet || true
+  if [ "$failed" = "true" ]; then
+    echo "ERROR: seeding failed; the migrate job was reset to migrate-only." >&2
+    exit 1
+  fi
+  SEEDED="true"
+}
+
+print_summary() {
+  local url
+  if [ "$DRY_RUN" = "1" ]; then
+    url="https://${SERVICE_NAME}-<hash>-as.a.run.app"
+  else
+    url="$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(status.url)')"
+  fi
+  printf '\n'
+  printf '%s\n' "=================================================================="
+  printf '%s\n' "Deployment Completed!"
+  printf '%s\n' "Service URL    : ${url}"
+  printf '%s\n' "Health Check   : ${url}/api/v1/health   (runs SELECT 1, proves the DB works)"
+  if [ "$SEEDED" = "true" ]; then
+    printf '%s\n' "Demo Users     : admin@example.test, alice@example.test, bob@example.test"
+    printf '%s\n' "Demo Password  : Stored in Secret Manager: ${SECRET_SEED_PASS} (not printed)."
+  else
+    printf '%s\n' "Demo Users     : not seeded by this run (--demo seeds only the first deployment;"
+    printf '%s\n' "                 use --seed-once to seed or re-seed them)."
+  fi
+  printf '%s\n' "=================================================================="
+}
+
+# ==============================================================================
+# --seed-once: explicit one-off seed against the existing migrate job.
+# ==============================================================================
+if [ "$SEED_ONCE" = "true" ]; then
+  if [ "$DRY_RUN" != "1" ] && [ "$JOB_EXISTS" != "true" ]; then
+    echo "Error: Cloud Run job '${MIGRATE_JOB_NAME}' does not exist yet." >&2
+    echo "Run the first deployment (./deploy/deploy.sh --demo) before --seed-once." >&2
+    exit 1
+  fi
+  seed_demo_users
+  print_summary
+  exit 0
+fi
 
 # ==============================================================================
 # 1. Enable required GCP APIs
@@ -149,7 +305,7 @@ run_cmd gcloud services enable \
 
 # ==============================================================================
 # 2. Create Artifact Registry repository (idempotent)
-#    Stores the container images (deploy.yml pushes one per commit SHA).
+#    Stores the container images; the deploy workflow (#27) pushes one per SHA.
 # ==============================================================================
 if [ "$DRY_RUN" = "1" ]; then
   run_cmd gcloud artifacts repositories describe "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID"
@@ -229,111 +385,63 @@ run_cmd gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --quiet
 
 # ==============================================================================
-# 6. Create DB User & Store DATABASE_URL in Secret Manager (only if the secret
-#    does not exist yet)
-#    ⭐ IMPORTANT: the DB user's password and the password inside DATABASE_URL
-#       must be the same value (checked by test_deploy_stub.sh). Never echo it.
-#    The URL uses the Cloud SQL Unix socket that Cloud Run mounts at
-#    /cloudsql/PROJECT:REGION:INSTANCE (Prisma reads it from `host=`).
-#    connection_limit=3 keeps one instance under db-f1-micro's connection cap.
+# 6. DB user + DATABASE_URL secret (idempotent; repaired if the secret has no
+#    ENABLED version, e.g. after a failed `versions add`)
 # ==============================================================================
-if [ "$DRY_RUN" = "1" ]; then
-  run_cmd gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID"
-  run_cmd gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)"
-  run_cmd gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="<GENERATED_HEX_PASSWORD>" --project "$PROJECT_ID"
-  run_cmd gcloud secrets create "$SECRET_DB_URL" --replication-policy="automatic" --project "$PROJECT_ID"
-  run_cmd gcloud secrets versions add "$SECRET_DB_URL" --data-file=- --project "$PROJECT_ID"
-else
-  if ! gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID" >/dev/null 2>&1; then
-    DB_PASS="$(openssl rand -hex 24)"
-    if gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)" | grep -qx "$DB_USER"; then
-      run_cmd gcloud sql users set-password "$DB_USER" --instance="$SQL_INSTANCE" --password="$DB_PASS" --project "$PROJECT_ID"
-    else
-      run_cmd gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="$DB_PASS" --project "$PROJECT_ID"
-    fi
-    DB_URL_VALUE="postgresql://${DB_USER}:${DB_PASS}@localhost/${DB_NAME}?host=/cloudsql/${SQL_CONN_NAME}&schema=public&connection_limit=3"
-    run_cmd gcloud secrets create "$SECRET_DB_URL" --replication-policy="automatic" --project "$PROJECT_ID"
-    printf "%s" "$DB_URL_VALUE" | gcloud secrets versions add "$SECRET_DB_URL" --data-file=- --project "$PROJECT_ID"
-  fi
-fi
+ensure_db_secret
 
-# ==============================================================================
-# 7. Create SEED_DEFAULT_PASSWORD in Secret Manager when --demo is passed
-#    prisma/seed.ts requires it (admin@example.test, alice@example.test,
-#    bob@example.test). Read it later with:
-#      gcloud secrets versions access latest --secret=<name>
-# ==============================================================================
-JOB_SECRETS="DATABASE_URL=${SECRET_DB_URL}:latest"
-if [ "$SEED_DEMO_DATA" = "true" ]; then
-  if [ "$DRY_RUN" = "1" ]; then
-    run_cmd gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID"
-    run_cmd gcloud secrets create "$SECRET_SEED_PASS" --replication-policy="automatic" --project "$PROJECT_ID"
-    run_cmd gcloud secrets versions add "$SECRET_SEED_PASS" --data-file=- --project "$PROJECT_ID"
-  else
-    if ! gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID" >/dev/null 2>&1; then
-      GENERATED_SEED_PASSWORD="$(openssl rand -base64 16 | tr -d '/+=' | cut -c1-14)Aa1!"
-      run_cmd gcloud secrets create "$SECRET_SEED_PASS" --replication-policy="automatic" --project "$PROJECT_ID"
-      printf "%s" "$GENERATED_SEED_PASSWORD" | gcloud secrets versions add "$SECRET_SEED_PASS" --data-file=- --project "$PROJECT_ID"
-    fi
-  fi
-  JOB_SECRETS="${JOB_SECRETS},SEED_DEFAULT_PASSWORD=${SECRET_SEED_PASS}:latest"
-fi
-
-# ------------------------------------------------------------------------------
-# Secret access (per secret, NOT project-wide)
+# Per-secret access (NOT project-wide).
 # ⭐ IMPORTANT: test_deploy_stub.sh fails if a project-wide secretAccessor
 #    binding is added — keep access limited to this app's own secrets.
-# ------------------------------------------------------------------------------
-# Grant access only to this app's secrets, after they exist.
-RUNTIME_SECRETS=("$SECRET_DB_URL")
-if [ "$SEED_DEMO_DATA" = "true" ]; then
-  RUNTIME_SECRETS+=("$SECRET_SEED_PASS")
-fi
-for secret in "${RUNTIME_SECRETS[@]}"; do
-  run_cmd gcloud secrets add-iam-policy-binding "$secret" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --project "$PROJECT_ID" --quiet
-done
+run_cmd gcloud secrets add-iam-policy-binding "$SECRET_DB_URL" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/secretmanager.secretAccessor" \
+  --project "$PROJECT_ID" --quiet
 
 # ==============================================================================
-# 8. Build & Push Unified Container Image via Cloud Build
-#    Builds the root Dockerfile (run this script from the repo root).
-#    Tag `latest` is only for this first manual setup; deploy.yml uses commit SHAs.
-#    NOTE: `gcloud builds submit --tag` cannot pass --build-arg, so this first
-#    image records GIT_SHA=unknown in its label. The release workflow (#27)
-#    builds with GIT_SHA=<commit> so released images record their commit (R-08).
+# Skip the build and rollout when the service already exists: a re-run must not
+# replace the digest-pinned image a release deployed with a local build.
 # ==============================================================================
+if [ "$SERVICE_EXISTS" = "true" ] && [ "$FORCE_IMAGE" != "true" ]; then
+  printf '\n'
+  printf '%s\n' "Cloud Run service '${SERVICE_NAME}' already exists: skipped the image build,"
+  printf '%s\n' "migration and rollout. Provisioning above is idempotent and changed nothing else."
+  printf '%s\n' "Use --force-image to rebuild :latest from this working tree and redeploy."
+  print_summary
+  exit 0
+fi
+
+# ==============================================================================
+# 7. Build & Push Container Image via Cloud Build
+#    deploy/cloudbuild.yaml sets DOCKER_BUILDKIT=1 (the Dockerfile uses cache
+#    mounts) and passes GIT_SHA, so the image records its commit (R-08).
+#    Tag `latest` is only for the manual first deployment; releases use SHAs.
+# ==============================================================================
+GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+if [ "$DRY_RUN" != "1" ] && [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  echo "WARNING: working tree is dirty; the image will be labelled ${GIT_SHA} but contain uncommitted changes." >&2
+fi
 run_cmd gcloud builds submit \
-  --tag "$IMAGE_URI" \
+  --config deploy/cloudbuild.yaml \
+  --substitutions "_IMAGE_URI=${IMAGE_URI},_GIT_SHA=${GIT_SHA}" \
   --project "$PROJECT_ID"
 
 # ==============================================================================
-# 9. Create/Update & Execute Cloud Run Job for Migration + Non-destructive Seed
+# 8. Create/Update & Execute Cloud Run Job for Migration
 #     ⭐ IMPORTANT: if this job fails the script stops BEFORE deploying the
 #        service, so a broken migration never reaches users.
-#     Command: `npx prisma migrate deploy`. With --demo the first execution
-#        also runs `npx prisma db seed`; the job is then left migrate-only so
-#        release.sh never re-seeds (deployment.md §3: the seed is idempotent but
-#        resets the seed users, which would undo an account disabled through the
-#        admin screen).
-#     deploy.yml / release.sh later re-run this same job (name: pangtao-migrate).
+#     The job stays migrate-only. The seed is a one-off (step 9) so later
+#     releases never re-seed (deployment.md §3).
 # ==============================================================================
-if [ "$SEED_DEMO_DATA" = "true" ]; then
-  JOB_COMMAND="npx prisma migrate deploy && npx prisma db seed"
-else
-  JOB_COMMAND="npx prisma migrate deploy"
-fi
-
 run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --image "$IMAGE_URI" \
   --region "$REGION" \
   --service-account "$SA_EMAIL" \
   --set-cloudsql-instances "$SQL_CONN_NAME" \
-  --set-secrets "$JOB_SECRETS" \
+  --set-secrets "DATABASE_URL=${SECRET_DB_URL}:latest" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,APP_TIMEZONE=Asia/Bangkok" \
   --command "sh" \
-  --args "-c,${JOB_COMMAND}" \
+  --args "-c,npx prisma migrate deploy" \
   --max-retries 1 \
   --task-timeout 300s \
   --project "$PROJECT_ID"
@@ -348,13 +456,17 @@ if ! run_cmd gcloud run jobs execute "$MIGRATE_JOB_NAME" \
   exit 1
 fi
 
-# The seed ran once above; leave the job migrate-only for every later release.
+# ==============================================================================
+# 9. One-off seed (--demo on the first deployment, or --seed-once)
+#    Only when the job did not exist before this run: re-running --demo must
+#    never re-enable disabled users or reset their passwords.
+# ==============================================================================
 if [ "$SEED_DEMO_DATA" = "true" ]; then
-  run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
-    --args "-c,npx prisma migrate deploy" \
-    --region "$REGION" \
-    --project "$PROJECT_ID" \
-    --quiet
+  if [ "$JOB_EXISTS" = "true" ]; then
+    echo "Migrate job already existed: seed skipped (use --seed-once to seed again)."
+  else
+    seed_demo_users
+  fi
 fi
 
 # ==============================================================================
@@ -385,24 +497,4 @@ run_cmd gcloud run deploy "$SERVICE_NAME" \
   --port 8080 \
   --project "$PROJECT_ID"
 
-if [ "$DRY_RUN" = "1" ]; then
-  SERVICE_URL="https://${SERVICE_NAME}-<hash>-as.a.run.app"
-else
-  SERVICE_URL="$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(status.url)')"
-fi
-
-# ------------------------------------------------------------------------------
-# Summary output (URLs; passwords stay in Secret Manager and are not printed)
-# ------------------------------------------------------------------------------
-printf '\n'
-printf '%s\n' "=================================================================="
-printf '%s\n' "Deployment Completed!"
-printf '%s\n' "Service URL    : ${SERVICE_URL}"
-printf '%s\n' "Health Check   : ${SERVICE_URL}/api/v1/health   (runs SELECT 1, proves the DB works)"
-if [ "$SEED_DEMO_DATA" = "true" ]; then
-  printf '%s\n' "Demo Users     : admin@example.test, alice@example.test, bob@example.test"
-  printf '%s\n' "Demo Password  : Stored in Secret Manager: ${SECRET_SEED_PASS} (not printed)."
-else
-  printf '%s\n' "Demo Users     : none seeded (re-run with --demo to create them)."
-fi
-printf '%s\n' "=================================================================="
+print_summary

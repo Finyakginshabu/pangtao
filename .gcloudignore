@@ -1,0 +1,40 @@
+# Mirrors .dockerignore: Cloud Build uploads the source tree before `docker
+# build`, and .dockerignore does not apply to that upload. Without this file,
+# gcloud falls back to .gitignore, so anything hidden through .git/info/exclude
+# or a global gitignore (local tool config, caches, logs) would be uploaded.
+# Syntax is gitignore's.
+
+# Secrets never leave the machine
+**/.env
+**/.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/.npmrc
+**/gha-creds-*.json
+
+# Installed and built inside the image
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+web/.vite
+
+# Not needed to build or run the app
+.git
+.github
+.vscode
+.idea
+docs
+tests
+coverage
+test-results
+playwright-report
+blob-report
+**/*.log
+# Keep Dockerfile: Cloud Build runs `docker build .` on this uploaded tree, so
+# the Dockerfile itself must be part of it (unlike .dockerignore, where Docker
+# always reads the Dockerfile even if it is listed).
+.dockerignore
+docker-compose.yml

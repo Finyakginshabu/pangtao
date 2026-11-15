@@ -1,7 +1,8 @@
 """Public deployment checks for Pangtao. Credentials/tokens are never printed.
 
 WHAT THIS SCRIPT DOES
-    Called by .github/workflows/deploy.yml after a deployment:
+    Intended to be called by .github/workflows/deploy.yml (#27, TBD) after a
+    deployment:
         python3 deploy/smoke_test.py SERVICE_URL
     It checks the live service and exits non-zero (failing the workflow) if any
     check fails. Each public check is retried up to 5 times, 3 seconds apart, to
@@ -37,6 +38,7 @@ import json
 import os
 import sys
 import time
+import http.client
 import urllib.error
 import urllib.request
 
@@ -82,7 +84,7 @@ def check(base):
                 if not predicate(body):
                     raise ValueError('Unexpected response')
                 break
-            except (urllib.error.URLError, TimeoutError, ValueError):
+            except (urllib.error.URLError, TimeoutError, ValueError, http.client.HTTPException, ConnectionError):
                 if attempt == 4:
                     raise RuntimeError('Smoke check failed: ' + path) from None
                 time.sleep(3)
@@ -105,13 +107,17 @@ def check(base):
         if not json.loads(body).get('user'):
             raise ValueError('No user in /api/v1/auth/me')
         print('PASS login and authenticated GET /api/v1/auth/me')
-    except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError, http.client.HTTPException, ConnectionError):
         raise RuntimeError('Login smoke check failed') from None
     finally:
-        # Always end the session, even when a check above failed.
+        # Always end the session, even when a check above failed. A failure here
+        # must not replace the original error, so it is reported separately.
         if cookies:
-            request(base, '/api/v1/auth/logout', data={}, cookies=cookies)
-            print('PASS logout')
+            try:
+                request(base, '/api/v1/auth/logout', data={}, cookies=cookies)
+                print('PASS logout')
+            except (urllib.error.URLError, TimeoutError, ValueError, http.client.HTTPException, ConnectionError) as error:
+                print('WARN logout failed: ' + type(error).__name__)
 
 
 # --- Entry point ----------------------------------------------------------------
