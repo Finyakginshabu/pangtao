@@ -34,7 +34,7 @@ PostgreSQL: users, sessions, login_attempts, accounts, transactions, allocation_
 | Authentication and role | Middleware: every route declares `access(...)`, built on requireAuth and requireRole | Default deny: a route without a declared role is rejected |
 | Ownership | Every service query filters by the session user id; composite foreign keys in the database | Another user’s id behaves as not found |
 | Request shape | Zod schemas at the route boundary | Unknown fields rejected |
-| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own |
+| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own. An interactive (callback) `$transaction` waits up to 5 s for a pooled connection (`TRANSACTION_OPTIONS` in `server/src/prisma.ts`; Prisma's default is 2 s) and runs for at most Prisma's default 5 s; array-form transactions are not affected |
 | Integrity | Database constraints (NOT NULL, CHECK, foreign keys, unique) | Last line of defence |
 | UI | Convenience only (inline validation, hidden controls) | Never trusted for security or correctness |
 
@@ -197,4 +197,4 @@ Later features (account management, loans, transfers, edit and void, search, fav
 | GitHub Actions with Workload Identity Federation | CI on pull requests; on merge to main, build, push, migrate and deploy, with no long-lived cloud keys in GitHub |
 | Cloud Logging | Application logs with request ids |
 
-**CI quality gate.** Every pull request runs install, lint, type-check, unit and API tests against a PostgreSQL service container, and build; the Playwright end-to-end suite runs on the staging-to-main release PR. Branch protection requires these checks and one teammate approval before merge. Details will follow the Lab 5 instructions.
+**CI quality gate.** `.github/workflows/ci.yml` runs on every pull request into `main` or `sprint-*-staging` as four parallel checks: lint, type-check and build; unit and API tests (with the 80% service-layer coverage gate) against a PostgreSQL service container; the Playwright end-to-end suite against a second PostgreSQL service container; and the production image build. Each test job writes a pass/fail/skip table and the names of failed tests to the run summary. Making these checks required, together with one teammate approval, is set up in Lab 5 #26 (TBD).

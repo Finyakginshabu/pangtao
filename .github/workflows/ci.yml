@@ -1,0 +1,188 @@
+# CI (Lab 5 #24, R-05, C-01): build and automated tests on every Pull Request.
+#
+# Four parallel jobs, each its own check on the PR:
+#   lint-typecheck-build : lint, both type-checks, build
+#   unit-api-tests       : Vitest unit + API tests against a PostgreSQL service, 80% service-layer coverage gate
+#   e2e                  : Playwright end-to-end suite against a PostgreSQL service
+#   docker-build         : the production image builds and records the commit under test
+# Each test job writes a pass/fail/skip table, plus the names of failed and flaky tests, to the
+# run's step summary.
+#
+# On pull_request, the checkout and github.sha are GitHub's merge of the PR into its base branch
+# (refs/pull/N/merge), not the PR head, so CI tests what the merge would produce.
+#
+# No repository secrets are used: the seed password is random per run and the database is a
+# throw-away service container, so the workflow also runs for pull requests from forks.
+# workflow_call lets the deploy workflow (#27) reuse these jobs.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, 'sprint-*-staging']
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck-build:
+    name: Lint, type-check, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  unit-api-tests:
+    name: Unit and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pangtao_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pangtao_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Configure environment (placeholders from .env.example, random seed password)
+        run: |
+          cp .env.example .env
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "SEED_DEFAULT_PASSWORD=$password" >> "$GITHUB_ENV"
+      # tests/global-setup.ts creates and migrates pangtao_db_test; the development database is not touched.
+      - name: Unit and API tests with coverage gate
+        run: >-
+          npx vitest run --coverage
+          --reporter=default --reporter=github-actions --reporter=json
+          --outputFile.json=vitest-report.json
+      - name: Test summary
+        if: always()
+        run: node scripts/ci-summary.mjs --vitest vitest-report.json --coverage coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pangtao_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pangtao_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Configure environment (placeholders from .env.example, random seed password)
+        run: |
+          cp .env.example .env
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "SEED_DEFAULT_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Migrate and seed the database
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # CI=true (set by Actions) makes Playwright start its own servers and retry a failed test twice.
+      - name: Playwright tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report.json
+        run: npx playwright test --reporter=list,github,json
+      - name: Test summary
+        if: always()
+        run: node scripts/ci-summary.mjs --playwright playwright-report.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-failure
+          path: |
+            test-results/
+            playwright-report.json
+          if-no-files-found: ignore
+          # Traces record request bodies, including the run's random seed password; keep them briefly.
+          retention-days: 3
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the production image (not pushed)
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: docker build --build-arg GIT_SHA="$GIT_SHA" -t pangtao:ci .
+      - name: Check the image records this commit
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          revision="$(docker inspect pangtao:ci --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          echo "image revision: $revision"
+          test "$revision" = "$GIT_SHA"

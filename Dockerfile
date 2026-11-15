@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # Pangtao production image: one container serves the API and the built React app
-# (system-sds §1). Used by docker compose; CI (#24) and Cloud Run (#25, #27) are to use it unchanged.
+# (system-sds §1). Used by docker compose and built by CI on every pull request; Cloud Run (#25, #27) is to use it unchanged.
 #
 # - Settings come from the environment at run time (R-02). No secret or .env is baked in;
 #   NODE_ENV, PORT and APP_COMMIT are defaults the environment can override.
