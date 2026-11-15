@@ -167,6 +167,7 @@ Later features (account management, loans, transfers, edit and void, search, fav
 |---|---|---|
 | NODE_ENV | development | Environment mode |
 | PORT | 8080 | HTTP port |
+| APP_PORT | 8080 | Host port of the production container (docker-compose, `app` profile) |
 | POSTGRES_USER | postgres | PostgreSQL user (docker-compose) |
 | POSTGRES_PASSWORD | postgres | PostgreSQL password (docker-compose) |
 | POSTGRES_DB | pangtao_db | PostgreSQL database name (docker-compose) |
@@ -177,15 +178,15 @@ Later features (account management, loans, transfers, edit and void, search, fav
 | BCRYPT_COST | 12 | Password hash cost |
 | APP_TIMEZONE | Asia/Bangkok | Defines today for BR-10 |
 | SEED_DEFAULT_PASSWORD | set locally, not committed | Password for seeded accounts |
-| LOG_LEVEL | info | Log verbosity |
+| LOG_LEVEL | info | Log verbosity (reserved; not read by the code yet) |
 | TRUST_PROXY | unset (1 on Cloud Run) | Proxy hops to trust for the client IP |
-| APP_COMMIT | set by the image | Commit the image was built from (Docker build argument GIT_SHA) |
+| APP_COMMIT | set by the image | Commit the image was built from (Docker build argument `GIT_SHA`, default `local` under compose) |
 
 `.env` is git-ignored and `.env.example` with placeholders is committed. Required values are read through `requireEnv` (`server/src/env.ts`), which stops with an actionable message when one is missing; Prisma refuses to connect without `DATABASE_URL`, and an invalid `TRUST_PROXY` stops the server at startup. The frontend contains no secrets and calls relative `/api` paths. In production, secrets live in GCP Secret Manager and are injected as environment variables; the image contains none.
 
 ## 8. Deployment plan (designed now, set up in Lab 5)
 
-**Local and Docker.** A multi-stage Dockerfile builds web and server and runs as a non-root user. `docker compose up` starts the app and PostgreSQL 16 with a named volume, so data survives restarts. Migrations run with `prisma migrate deploy` as a release step before the new version receives traffic.
+**Local and Docker.** A multi-stage Dockerfile builds web and server and runs as a non-root user. `docker compose up -d` starts PostgreSQL 16 only (development and tests); `docker compose --profile app up -d --build` also runs the one-off `migrate` job (`prisma migrate deploy` and the seed, local only) and the app on `localhost:${APP_PORT}` (default 8080), which starts only after `migrate` succeeds. Data is in the `pgdata` named volume, so it survives restarts. On Cloud Run, `prisma migrate deploy` is to run as a release job before the new revision receives traffic (TBD, #25 and #27).
 
 | GCP component | Use |
 |---|---|
