@@ -34,7 +34,7 @@ PostgreSQL: users, sessions, login_attempts, accounts, transactions, allocation_
 | Authentication and role | Middleware: every route declares `access(...)`, built on requireAuth and requireRole | Default deny: a route without a declared role is rejected |
 | Ownership | Every service query filters by the session user id; composite foreign keys in the database | Another user’s id behaves as not found |
 | Request shape | Zod schemas at the route boundary | Unknown fields rejected |
-| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own |
+| Business rules BR-04 to BR-11 | Service layer, inside one database transaction | Pure functions (allocation validator, balance calculator) are unit-tested on their own. An interactive (callback) `$transaction` waits up to 5 s for a pooled connection (`TRANSACTION_OPTIONS` in `server/src/prisma.ts`; Prisma's default is 2 s) and runs for at most Prisma's default 5 s; array-form transactions are not affected |
 | Integrity | Database constraints (NOT NULL, CHECK, foreign keys, unique) | Last line of defence |
 | UI | Convenience only (inline validation, hidden controls) | Never trusted for security or correctness |
 

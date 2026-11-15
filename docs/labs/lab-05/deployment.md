@@ -81,7 +81,7 @@ npm run verify                # lint, type-check, unit + API with coverage gate,
 | End-to-end tests | `prisma migrate deploy`, `prisma db seed`, then `playwright test` (Chromium; a failed test is retried twice and reported as flaky if the retry passes) |
 | Docker image build | `docker build` with `GIT_SHA` set to the commit under test (`github.sha`), then checks the image's revision label equals that commit |
 
-On a pull request, every job checks out GitHub's merge of the PR into its base branch (`refs/pull/N/merge`), so the commit under test is that merge commit, not the PR's head commit. Each test job adds a pass/fail/skip table to the run's summary page, followed by the names of any failed tests and of end-to-end tests that passed only after a retry; the coverage report and, on E2E failure, the Playwright traces are uploaded as run artifacts. The environment is `.env.example` plus a random `SEED_DEFAULT_PASSWORD`. Required-check settings are _TBD (#26)_.
+On a pull request, every job checks out GitHub's merge of the PR into its base branch (`refs/pull/N/merge`), so the commit under test is that merge commit, not the PR's head commit. Each test job adds a pass/fail/skip table to the run's summary page, followed by the names of any failed tests and of end-to-end tests that passed only after a retry; the coverage report (kept 7 days) and, on E2E failure, the Playwright traces (kept 3 days, because they record request bodies including the run's random seed password) are uploaded as run artifacts. The environment is `.env.example` plus a random `SEED_DEFAULT_PASSWORD`. Required-check settings are _TBD (#26)_.
 
 ### Production container from a clean clone (C-03)
 

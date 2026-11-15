@@ -102,6 +102,7 @@ jobs:
           name: coverage
           path: coverage/
           if-no-files-found: ignore
+          retention-days: 7
 
   e2e:
     name: End-to-end tests
@@ -162,6 +163,8 @@ jobs:
             test-results/
             playwright-report.json
           if-no-files-found: ignore
+          # Traces record request bodies, including the run's random seed password; keep them briefly.
+          retention-days: 3
 
   docker-build:
     name: Docker image build
@@ -173,9 +176,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Build the production image (not pushed)
-        run: docker build --build-arg GIT_SHA="${{ github.sha }}" -t pangtao:ci .
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: docker build --build-arg GIT_SHA="$GIT_SHA" -t pangtao:ci .
       - name: Check the image records this commit
+        env:
+          GIT_SHA: ${{ github.sha }}
         run: |
           revision="$(docker inspect pangtao:ci --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
           echo "image revision: $revision"
-          test "$revision" = "${{ github.sha }}"
+          test "$revision" = "$GIT_SHA"
