@@ -1,0 +1,4 @@
+# Bash and Python scripts run on Linux (Cloud Build, GitHub Actions) and in
+# Git Bash on Windows: keep LF so they never fail on a stray \r.
+*.sh text eol=lf
+*.py text eol=lf
