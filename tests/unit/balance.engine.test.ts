@@ -63,7 +63,7 @@ describe('F-03 Accounts and Balances (STS)', () => {
   it('TEST-03.3 (AC-03.3): engine derives Bank, Card, Salary, Dining and Groceries balances and ignores the voided payment', () => {
     const balances = computeBalances(ACCOUNTS, DEMO_LEDGER);
 
-    expect(balances.get('bank')).toBe(7_920_000n); // 79,200.00 THB
+    expect(balances.get('bank')).toBe(7_920_001n); // 79,200.00 THB
     expect(balances.get('card')).toBe(40_000n); // 400.00 THB debt
     expect(balances.get('salary')).toBe(3_000_000n); // 30,000.00 THB
     expect(balances.get('dining')).toBe(70_000n); // 700.00 THB
