@@ -36,11 +36,18 @@ set -euo pipefail
 #   - Existing resources/secrets are reused, never overwritten; a secret counts
 #     as done only when it has an ENABLED version, so a failed `versions add`
 #     is repaired on the next run.
+#   - A failed gcloud *read* (quota, expired token, missing permission) is an
+#     error, never "resource missing": otherwise a re-run could rotate the DB
+#     password or skip the re-run guard.
 #   - Passwords are generated with openssl and live only in Secret Manager;
 #     they are never printed (run_cmd redacts --password=...).
+#   - The one-off seed detaches SEED_DEFAULT_PASSWORD in a trap (EXIT/INT/TERM),
+#     so Ctrl-C or a failed reset still leaves the job migrate-only.
 #   - Preview first with:  DRY_RUN=1 ./deploy/deploy.sh   (no gcloud calls)
 #   - Run from the REPO ROOT (step 7 builds the root Dockerfile).
 #   - Offline test: deploy/tests/test_deploy_stub.sh
+#   - ⚠️ Cloud SQL keeps a deleted instance's name reserved for up to a week.
+#     After deploy/teardown.sh, either wait, or change SQL_INSTANCE below.
 #
 # REFERENCES
 #   - gcloud run deploy : https://cloud.google.com/sdk/gcloud/reference/run/deploy
@@ -146,6 +153,44 @@ echo "Demo    : ${SEED_DEMO_DATA}"
 echo "Dry Run : ${DRY_RUN}"
 echo "=================================================================="
 
+# ==============================================================================
+# Helpers
+# ==============================================================================
+
+# True when a gcloud error message means "the resource does not exist".
+# gcloud words this differently per API: "NOT_FOUND:" (gRPC), "Cannot find
+# service [...] in region [...]" (Cloud Run), "HTTPError 404: ... does not
+# exist" (Cloud SQL). Permission, quota, auth and API-disabled errors match none
+# of these and are treated as hard failures.
+is_not_found() {
+  case "$1" in
+    *NOT_FOUND*|*"not found"*|*"Not Found"*|*"Cannot find"*|*"could not be found"*|*"does not exist"*|*"HTTPError 404"*)
+      return 0 ;;
+  esac
+  return 1
+}
+
+# Run a read-only gcloud command that answers "does this exist?".
+#   0 = it exists
+#   1 = it does not exist (gcloud said NOT_FOUND)
+#   exits 1 for anything else (expired token, quota, missing permission, API not
+#   yet enabled). Treating those as "missing" would rotate the DB password or
+#   bypass the re-run guard, so they must stop the script instead.
+gcloud_read() {
+  local what="$1"; shift
+  local output status
+  output="$("$@" 2>&1)" || status=$?
+  if [ "${status:-0}" -eq 0 ]; then
+    return 0
+  fi
+  if is_not_found "$output"; then
+    return 1
+  fi
+  printf 'ERROR: could not check %s:\n%s\n' "$what" "$output" >&2
+  printf '%s\n' 'Fix the error above (permissions, quota, login) and re-run.' >&2
+  exit 1
+}
+
 # ------------------------------------------------------------------------------
 # What already exists? A dry run assumes a first deployment so it prints every
 # command.
@@ -153,27 +198,38 @@ echo "=================================================================="
 SERVICE_EXISTS="false"
 JOB_EXISTS="false"
 if [ "$DRY_RUN" != "1" ]; then
-  if gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  if gcloud_read "Cloud Run service ${SERVICE_NAME}" \
+    gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID"; then
     SERVICE_EXISTS="true"
   fi
-  if gcloud run jobs describe "$MIGRATE_JOB_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  if gcloud_read "Cloud Run job ${MIGRATE_JOB_NAME}" \
+    gcloud run jobs describe "$MIGRATE_JOB_NAME" --region "$REGION" --project "$PROJECT_ID"; then
     JOB_EXISTS="true"
   fi
 fi
 echo "Service exists: ${SERVICE_EXISTS} | Migrate job exists: ${JOB_EXISTS}"
 
-# ==============================================================================
-# Helpers
-# ==============================================================================
-
 # True when the secret exists AND has an ENABLED version. A secret whose
 # `versions add` failed (partial run) is treated as missing, so the next run
 # repairs it instead of leaving an empty secret that breaks `:latest`.
+# ⭐ Only a successful, empty list (or NOT_FOUND) means "no version". Any other
+#    failure must stop the script: otherwise a quota/permission error on a
+#    re-run would reset the production DB password while the running service
+#    keeps the old DATABASE_URL.
 secret_has_version() {
-  local name="$1"
-  gcloud secrets versions list "$name" \
+  local name="$1" output status
+  output="$(gcloud secrets versions list "$name" \
     --filter='state=ENABLED' --limit=1 --format='value(name)' \
-    --project "$PROJECT_ID" 2>/dev/null | grep -q .
+    --project "$PROJECT_ID" 2>&1)" || status=$?
+  if [ "${status:-0}" -ne 0 ]; then
+    if is_not_found "$output"; then
+      return 1
+    fi
+    printf 'ERROR: could not list versions of secret %s:\n%s\n' "$name" "$output" >&2
+    printf '%s\n' 'Fix the error above (permissions, quota, login) and re-run.' >&2
+    exit 1
+  fi
+  [ -n "$output" ]
 }
 
 # Create the DB user (or reset its password) and store the matching DATABASE_URL.
@@ -190,16 +246,23 @@ ensure_db_secret() {
   if secret_has_version "$SECRET_DB_URL"; then
     return 0
   fi
-  local db_pass db_url
+  local db_pass db_url users
   db_pass="$(openssl rand -hex 24)"
-  if gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)" | grep -qx "$DB_USER"; then
+  # Read the user list before rotating anything: if this fails (permission,
+  # quota), stop instead of resetting a password the running service cannot see.
+  users="$(gcloud sql users list --instance="$SQL_INSTANCE" --project "$PROJECT_ID" --format="value(name)" 2>&1)" || {
+    printf 'ERROR: could not list Cloud SQL users of %s:\n%s\n' "$SQL_INSTANCE" "$users" >&2
+    exit 1
+  }
+  if printf '%s\n' "$users" | grep -qx "$DB_USER"; then
     run_cmd gcloud sql users set-password "$DB_USER" --instance="$SQL_INSTANCE" --password="$db_pass" --project "$PROJECT_ID"
   else
     run_cmd gcloud sql users create "$DB_USER" --instance="$SQL_INSTANCE" --password="$db_pass" --project "$PROJECT_ID"
   fi
   # The Cloud SQL Unix socket that Cloud Run mounts at /cloudsql/PROJECT:REGION:INSTANCE.
   db_url="postgresql://${DB_USER}:${db_pass}@localhost/${DB_NAME}?host=/cloudsql/${SQL_CONN_NAME}&schema=public&connection_limit=3"
-  if ! gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  if ! gcloud_read "secret ${SECRET_DB_URL}" \
+    gcloud secrets describe "$SECRET_DB_URL" --project "$PROJECT_ID"; then
     run_cmd gcloud secrets create "$SECRET_DB_URL" --replication-policy="automatic" --project "$PROJECT_ID"
   fi
   printf "%s" "$db_url" | gcloud secrets versions add "$SECRET_DB_URL" --data-file=- --project "$PROJECT_ID"
@@ -217,10 +280,34 @@ ensure_seed_secret() {
     return 0
   fi
   GENERATED_SEED_PASSWORD="$(openssl rand -base64 16 | tr -d '/+=' | cut -c1-14)Aa1!"
-  if ! gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID" >/dev/null 2>&1; then
+  if ! gcloud_read "secret ${SECRET_SEED_PASS}" \
+    gcloud secrets describe "$SECRET_SEED_PASS" --project "$PROJECT_ID"; then
     run_cmd gcloud secrets create "$SECRET_SEED_PASS" --replication-policy="automatic" --project "$PROJECT_ID"
   fi
   printf "%s" "$GENERATED_SEED_PASSWORD" | gcloud secrets versions add "$SECRET_SEED_PASS" --data-file=- --project "$PROJECT_ID"
+}
+
+# Detach the seed secret from the migrate job and revoke the per-secret binding.
+# Runs on success, on a failed seed job, and from the EXIT/INT/TERM trap, so an
+# interrupted run (Ctrl-C during `jobs execute --wait`, a failing reset command)
+# can never leave the job with seed args — a later release would re-seed and
+# re-enable disabled users (deployment.md §3).
+SEED_SECRET_ATTACHED="false"
+seed_detach() {
+  if [ "$SEED_SECRET_ATTACHED" != "true" ]; then
+    return 0
+  fi
+  SEED_SECRET_ATTACHED="false"
+  # Clear the traps first: cleanup must run once, even if it fails part-way.
+  trap - EXIT INT TERM
+  run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
+    --remove-secrets=SEED_DEFAULT_PASSWORD \
+    --args="--,sh,-c,npx prisma migrate deploy" \
+    --region "$REGION" --project "$PROJECT_ID" --quiet || true
+  run_cmd gcloud secrets remove-iam-policy-binding "$SECRET_SEED_PASS" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project "$PROJECT_ID" --quiet || true
 }
 
 # Seed once: attach the seed password to the migrate job, run migrate + seed,
@@ -229,25 +316,22 @@ ensure_seed_secret() {
 seed_demo_users() {
   echo "Seeding the demo users once (npx prisma db seed)..."
   ensure_seed_secret
+  # From here the job carries the seed password: clean up on ANY exit.
+  SEED_SECRET_ATTACHED="true"
+  trap 'seed_detach' EXIT
+  trap 'seed_detach; exit 130' INT TERM
   run_cmd gcloud secrets add-iam-policy-binding "$SECRET_SEED_PASS" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/secretmanager.secretAccessor" \
     --project "$PROJECT_ID" --quiet
   run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
     --update-secrets "SEED_DEFAULT_PASSWORD=${SECRET_SEED_PASS}:latest" \
-    --args "-c,npx prisma migrate deploy && npx prisma db seed" \
+    --args="--,sh,-c,npx prisma migrate deploy && npx prisma db seed" \
     --region "$REGION" --project "$PROJECT_ID" --quiet
   local failed="false"
   run_cmd gcloud run jobs execute "$MIGRATE_JOB_NAME" \
     --region "$REGION" --wait --project "$PROJECT_ID" || failed="true"
-  run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
-    --remove-secrets=SEED_DEFAULT_PASSWORD \
-    --args "-c,npx prisma migrate deploy" \
-    --region "$REGION" --project "$PROJECT_ID" --quiet
-  run_cmd gcloud secrets remove-iam-policy-binding "$SECRET_SEED_PASS" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --project "$PROJECT_ID" --quiet || true
+  seed_detach
   if [ "$failed" = "true" ]; then
     echo "ERROR: seeding failed; the migrate job was reset to migrate-only." >&2
     exit 1
@@ -432,6 +516,9 @@ run_cmd gcloud builds submit \
 #        service, so a broken migration never reaches users.
 #     The job stays migrate-only. The seed is a one-off (step 9) so later
 #     releases never re-seed (deployment.md §3).
+#     ⭐ IMPORTANT: --command /usr/bin/tini (the image's ENTRYPOINT) keeps PID 1
+#        and signal forwarding, which deployment.md §1 promises for the job.
+#        `sh -c` then runs the migration; --args starts with `--` for tini.
 # ==============================================================================
 run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --image "$IMAGE_URI" \
@@ -440,8 +527,8 @@ run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --set-cloudsql-instances "$SQL_CONN_NAME" \
   --set-secrets "DATABASE_URL=${SECRET_DB_URL}:latest" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,APP_TIMEZONE=Asia/Bangkok" \
-  --command "sh" \
-  --args "-c,npx prisma migrate deploy" \
+  --command "/usr/bin/tini" \
+  --args="--,sh,-c,npx prisma migrate deploy" \
   --max-retries 1 \
   --task-timeout 300s \
   --project "$PROJECT_ID"

@@ -18,6 +18,9 @@ set -euo pipefail
 #
 # ⚠️ DESTRUCTIVE: all Cloud SQL data is permanently lost. You must type the
 #    project ID to confirm. Preview first with:  DRY_RUN=1 ./deploy/teardown.sh
+#    Cloud SQL reserves a deleted instance's name for up to a week, so a
+#    deploy/deploy.sh run right after teardown fails until that expires (or
+#    SQL_INSTANCE is changed in both scripts).
 #
 # REFERENCES
 #   - gcloud run services delete  : https://cloud.google.com/sdk/gcloud/reference/run/services/delete
@@ -108,6 +111,9 @@ run_cmd gcloud sql instances delete "$SQL_INSTANCE" --project "$PROJECT_ID" --qu
 run_cmd gcloud artifacts repositories delete "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID" --quiet || true
 run_cmd gcloud secrets delete "$SECRET_DB_URL" --project "$PROJECT_ID" --quiet || true
 run_cmd gcloud secrets delete "$SECRET_SEED_PASS" --project "$PROJECT_ID" --quiet || true
+# Cloud Build's default upload/logs bucket (gs://PROJECT_ID_cloudbuild). It holds
+# the uploaded build contexts and build logs, so remove it with the rest.
+run_cmd gcloud storage rm --recursive "gs://${PROJECT_ID}_cloudbuild" --project "$PROJECT_ID" --quiet || true
 # Remove the project-level role granted by deploy.sh, so no deleted:serviceAccount
 # entry is left behind in the project IAM policy.
 run_cmd gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
@@ -118,3 +124,5 @@ run_cmd gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
 run_cmd gcloud iam service-accounts delete "$SA_EMAIL" --project "$PROJECT_ID" --quiet || true
 
 echo "Teardown completed."
+echo "Note: Cloud SQL keeps a deleted instance's name reserved for up to a week, so"
+echo "deploy/deploy.sh will fail if you re-run it immediately with SQL_INSTANCE=${SQL_INSTANCE}."

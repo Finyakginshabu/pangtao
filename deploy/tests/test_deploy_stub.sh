@@ -13,10 +13,16 @@
 #     demo        : first run + --demo    -> seed once, then job reset and the
 #                                            seed secret detached + revoked
 #     seed_once   : --seed-once           -> seed only, no build/rollout
-#   It also checks: `--edition=enterprise`, `--no-storage-auto-increase`, no
-#   project-wide secretAccessor role, DB password == password inside DATABASE_URL,
-#   and that no password/secret value leaks into the output. Finally DRY_RUN=1
-#   must make zero gcloud calls.
+#     secret_error: versions list fails   -> exit 1, DB password NOT rotated
+#     service_error: describe fails       -> exit 1, no rollout (not "missing")
+#   Then SIGTERM during the seed's `jobs execute --wait` must still detach the
+#   seed secret and reset the job.
+#   It also checks: `--edition=enterprise`, `--no-storage-auto-increase`, the
+#   migrate job keeps the tini entrypoint, no project-wide secretAccessor role,
+#   DB password == password inside DATABASE_URL, and that no password/secret
+#   value leaks into the output. Finally DRY_RUN=1 must make zero gcloud calls.
+#
+#   Works with bash 3.2 (macOS): no empty-array expansion, no `local -n`.
 #
 # HOW TO RUN (repo root, needs bash):  bash deploy/tests/test_deploy_stub.sh
 #   Prints `PASS: <scenario>` per scenario; any `FAIL ...` exits non-zero.
@@ -65,8 +71,13 @@ if [ "${1:-} ${2:-}" = 'config get-value' ]; then
 fi
 
 if [ "${1:-} ${2:-} ${3:-}" = 'run services describe' ]; then
+  if [ -n "${STUB_SERVICE_ERROR:-}" ]; then
+    echo "ERROR: (gcloud.run.services.describe) ${STUB_SERVICE_ERROR}: simulated failure" >&2
+    exit 1
+  fi
   # "missing" only until this run deploys the service; the summary reads it back.
   if [ "${STUB_SERVICE:-present}" = missing ] && ! grep -q '^run deploy ' "$GCLOUD_LOG" 2>/dev/null; then
+    echo 'ERROR: (gcloud.run.services.describe) Cannot find service [pangtao] in region [asia-southeast1].' >&2
     exit 1
   fi
   echo https://pangtao-stub.example.invalid
@@ -74,22 +85,39 @@ if [ "${1:-} ${2:-} ${3:-}" = 'run services describe' ]; then
 fi
 
 if [ "${1:-} ${2:-} ${3:-}" = 'run jobs describe' ]; then
-  if [ "${STUB_JOB:-present}" = missing ]; then exit 1; fi
+  if [ -n "${STUB_JOB_ERROR:-}" ]; then
+    echo "ERROR: (gcloud.run.jobs.describe) ${STUB_JOB_ERROR}: simulated failure" >&2
+    exit 1
+  fi
+  if [ "${STUB_JOB:-present}" = missing ]; then
+    echo 'ERROR: (gcloud.run.jobs.describe) Cannot find job [pangtao-migrate] in region [asia-southeast1].' >&2
+    exit 1
+  fi
   echo pangtao-migrate
   exit 0
 fi
 
 if [ "${1:-} ${2:-} ${3:-}" = 'run jobs execute' ]; then
+  if [ "${STUB_JOB_HANG:-0}" = 1 ]; then sleep 3; fi
   if [ "${STUB_JOB_FAIL:-0}" = 1 ]; then exit 1; fi
   exit 0
 fi
 
 if [ "${1:-} ${2:-} ${3:-}" = 'secrets versions list' ]; then
   name="${4:-}"
+  if [ -n "${STUB_SECRET_LIST_ERROR:-}" ]; then
+    echo "ERROR: (gcloud.secrets.versions.list) ${STUB_SECRET_LIST_ERROR}: simulated failure" >&2
+    exit 1
+  fi
   value='version'
   if [ "$name" = pangtao-database-url ]; then value="${STUB_DB_SECRET:-version}"; fi
   if [ "$name" = pangtao-seed-password ]; then value="${STUB_SEED_SECRET:-version}"; fi
-  case "$value" in absent|no-version) exit 1 ;; esac
+  case "$value" in
+    absent)
+      echo "ERROR: (gcloud.secrets.versions.list) NOT_FOUND: Secret [${name}] not found" >&2
+      exit 1 ;;
+    no-version) exit 0 ;;
+  esac
   echo 1
   exit 0
 fi
@@ -99,7 +127,10 @@ if [ "${1:-} ${2:-} ${3:-}" = 'secrets describe' ]; then
   value='present'
   if [ "$name" = pangtao-database-url ]; then value="${STUB_DB_SECRET:-version}"; fi
   if [ "$name" = pangtao-seed-password ]; then value="${STUB_SEED_SECRET:-version}"; fi
-  if [ "$value" = absent ]; then exit 1; fi
+  if [ "$value" = absent ]; then
+    echo "ERROR: (gcloud.secrets.describe) NOT_FOUND: Secret [${name}] not found" >&2
+    exit 1
+  fi
   exit 0
 fi
 
@@ -116,7 +147,9 @@ fi
 for word in "$@"; do
   if [ "$word" = describe ]; then
     case "$STUB_MODE" in
-      first_run|demo|job-fail) exit 1 ;;
+      first_run|demo|job-fail)
+        echo "ERROR: (gcloud) NOT_FOUND: simulated missing resource" >&2
+        exit 1 ;;
     esac
   fi
 done
@@ -128,8 +161,9 @@ export REGION=asia-southeast1
 export DRY_RUN=0
 
 # --- Run every scenario and assert on what deploy.sh did ------------------------
-for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_once; do
-  unset STUB_SERVICE STUB_JOB STUB_DB_SECRET STUB_SEED_SECRET STUB_USER_EXISTS STUB_JOB_FAIL
+for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_once secret_error service_error; do
+  unset STUB_SERVICE STUB_JOB STUB_DB_SECRET STUB_SEED_SECRET STUB_USER_EXISTS STUB_JOB_FAIL \
+    STUB_SECRET_LIST_ERROR STUB_SERVICE_ERROR STUB_JOB_ERROR STUB_JOB_HANG
   args=()
   case "$MODE" in
     first_run)
@@ -152,14 +186,23 @@ for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_on
     seed_once)
       export STUB_SERVICE=present STUB_JOB=present STUB_DB_SECRET=version STUB_SEED_SECRET=version STUB_USER_EXISTS=1
       args+=(--seed-once) ;;
+    secret_error)
+      # The versions list fails for a reason other than NOT_FOUND.
+      export STUB_SERVICE=present STUB_JOB=present STUB_DB_SECRET=version STUB_SEED_SECRET=version STUB_USER_EXISTS=1
+      export STUB_SECRET_LIST_ERROR=RESOURCE_EXHAUSTED ;;
+    service_error)
+      # An expired token / missing permission must not read as "no service".
+      export STUB_SERVICE=missing STUB_JOB=present STUB_DB_SECRET=version STUB_SEED_SECRET=version STUB_USER_EXISTS=1
+      export STUB_SERVICE_ERROR=PERMISSION_DENIED ;;
   esac
   export STUB_MODE="$MODE"
   export GCLOUD_LOG="$TEST_STATE_DIR/gcloud-$MODE.log"
   rm -f "$TEST_STATE_DIR/sql-pass" "$TEST_STATE_DIR"/payload-*
   result=0
-  bash "$DEPLOY_SCRIPT" "${args[@]}" > "$TEST_STATE_DIR/output" 2>&1 || result=$?
+  # ${args[@]+...} keeps `set -u` happy on bash 3.2 (macOS) when there are no args.
+  bash "$DEPLOY_SCRIPT" ${args[@]+"${args[@]}"} > "$TEST_STATE_DIR/output" 2>&1 || result=$?
   expected=0
-  if [ "$MODE" = job-fail ]; then expected=1; fi
+  case "$MODE" in job-fail|secret_error|service_error) expected=1 ;; esac
   if [ "$result" -ne "$expected" ]; then
     echo "FAIL $MODE: unexpected exit $result (wanted $expected)"
     cat "$TEST_STATE_DIR/output"
@@ -180,6 +223,8 @@ for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_on
       grep -q -- '--no-storage-auto-increase' "$GCLOUD_LOG"
       grep -q '^sql users create ' "$GCLOUD_LOG"
       grep -q '^secrets add-iam-policy-binding pangtao-database-url ' "$GCLOUD_LOG"
+      # The migrate job must keep the image's tini entrypoint (signal forwarding).
+      grep -q -- '--command /usr/bin/tini --args=--,sh,-c,npx prisma migrate deploy' "$GCLOUD_LOG"
       if grep -q 'db seed' "$GCLOUD_LOG"; then echo 'FAIL: seeded without --demo'; exit 1; fi
       if grep -q '^run jobs update ' "$GCLOUD_LOG"; then echo 'FAIL: updated the job on a first run'; exit 1; fi ;;
     rerun)
@@ -212,15 +257,27 @@ for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_on
       grep -q '^run jobs update .*db seed' "$GCLOUD_LOG"
       grep -q '^secrets add-iam-policy-binding pangtao-seed-password ' "$GCLOUD_LOG"
       # The seed secret must be detached and its binding revoked afterwards.
-      grep -q -- '^run jobs update pangtao-migrate --remove-secrets=SEED_DEFAULT_PASSWORD --args -c,npx prisma migrate deploy' "$GCLOUD_LOG"
+      grep -q -- '^run jobs update pangtao-migrate --remove-secrets=SEED_DEFAULT_PASSWORD --args=--,sh,-c,npx prisma migrate deploy' "$GCLOUD_LOG"
       grep -q '^secrets remove-iam-policy-binding pangtao-seed-password ' "$GCLOUD_LOG"
       grep -q '^run deploy ' "$GCLOUD_LOG" ;;
     seed_once)
       grep -q '^run jobs update .*db seed' "$GCLOUD_LOG"
-      grep -q -- '^run jobs update pangtao-migrate --remove-secrets=SEED_DEFAULT_PASSWORD --args -c,npx prisma migrate deploy' "$GCLOUD_LOG"
+      grep -q -- '^run jobs update pangtao-migrate --remove-secrets=SEED_DEFAULT_PASSWORD --args=--,sh,-c,npx prisma migrate deploy' "$GCLOUD_LOG"
       grep -q '^secrets remove-iam-policy-binding pangtao-seed-password ' "$GCLOUD_LOG"
       if grep -q '^run deploy ' "$GCLOUD_LOG"; then echo 'FAIL: --seed-once rolled out an image'; exit 1; fi
       if grep -q '^builds submit ' "$GCLOUD_LOG"; then echo 'FAIL: --seed-once rebuilt the image'; exit 1; fi ;;
+    secret_error)
+      if grep -Eq '^(sql users (create|set-password)|secrets versions add) ' "$GCLOUD_LOG"; then
+        echo 'FAIL: a failed secret read rotated the DB password'; exit 1
+      fi
+      if ! grep -q 'could not list versions of secret' "$TEST_STATE_DIR/output"; then
+        echo 'FAIL: the secret read error was not reported'; exit 1
+      fi ;;
+    service_error)
+      if grep -q '^run deploy ' "$GCLOUD_LOG"; then echo 'FAIL: rollout continued after a failed check'; exit 1; fi
+      if ! grep -q 'could not check Cloud Run service' "$TEST_STATE_DIR/output"; then
+        echo 'FAIL: the service check error was not reported'; exit 1
+      fi ;;
   esac
 
   # The DB password and the password inside DATABASE_URL must match, and no
@@ -245,6 +302,34 @@ for MODE in first_run rerun rerun_force partial job_exists job-fail demo seed_on
   done
   echo "PASS: $MODE (exit, migration gate, credential handling, secret redaction)"
 done
+
+# --- An interrupted seed must still detach the secret -----------------------------
+# SIGTERM during `jobs execute --wait` (Ctrl-C in a terminal, a cancelled CI job)
+# must leave the migrate job migrate-only, or the next release re-seeds.
+unset STUB_SERVICE_ERROR STUB_JOB_ERROR STUB_SECRET_LIST_ERROR STUB_JOB_FAIL
+export STUB_SERVICE=missing STUB_JOB=missing STUB_DB_SECRET=absent STUB_SEED_SECRET=absent \
+  STUB_USER_EXISTS=0 STUB_JOB_HANG=1 STUB_MODE=interrupt
+export GCLOUD_LOG="$TEST_STATE_DIR/gcloud-interrupt.log"
+rm -f "$TEST_STATE_DIR/sql-pass" "$TEST_STATE_DIR"/payload-*
+bash "$DEPLOY_SCRIPT" --demo > "$TEST_STATE_DIR/output" 2>&1 &
+seed_pid=$!
+attempt=0
+while [ "$attempt" -lt 200 ]; do
+  # Two executes: the migration (step 8) and the seed (step 9).
+  count="$(grep -c '^run jobs execute ' "$GCLOUD_LOG" 2>/dev/null || true)"
+  if [ "${count:-0}" -ge 2 ]; then break; fi
+  sleep 0.1
+  attempt=$((attempt + 1))
+done
+kill -TERM "$seed_pid" 2>/dev/null || true
+status=0
+wait "$seed_pid" || status=$?
+if [ "$status" -ne 130 ]; then
+  echo "FAIL interrupt: expected exit 130, got $status"; cat "$TEST_STATE_DIR/output"; exit 1
+fi
+grep -q -- '^run jobs update pangtao-migrate --remove-secrets=SEED_DEFAULT_PASSWORD --args=--,sh,-c,npx prisma migrate deploy' "$GCLOUD_LOG"
+grep -q '^secrets remove-iam-policy-binding pangtao-seed-password ' "$GCLOUD_LOG"
+echo 'PASS: interrupted seed still detaches the secret and resets the job'
 
 # --- Dry run must not call gcloud at all ------------------------------------------
 export GCLOUD_LOG="$TEST_STATE_DIR/dry-run-calls"
