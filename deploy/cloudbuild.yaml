@@ -1,0 +1,29 @@
+# Cloud Build config for the production image (called by deploy/deploy.sh).
+#
+# Why not `gcloud builds submit --tag`:
+#   - the Dockerfile uses `RUN --mount=type=cache`, which needs BuildKit;
+#   - `--tag` cannot pass --build-arg, so the image could not record its commit.
+#
+# Usage (from the repo root):
+#   gcloud builds submit --config deploy/cloudbuild.yaml \
+#     --substitutions "_IMAGE_URI=$REGION-docker.pkg.dev/$PROJECT_ID/pangtao/pangtao:latest,_GIT_SHA=$(git rev-parse HEAD)"
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+    args:
+      - '-c'
+      - |
+        docker build \
+          --build-arg GIT_SHA=${_GIT_SHA} \
+          --tag ${_IMAGE_URI} \
+          .
+images:
+  - '${_IMAGE_URI}'
+# The default build timeout is 10 minutes; two `npm ci` runs plus the server and
+# web builds can exceed it on a cold cache.
+timeout: '1800s'
+substitutions:
+  _IMAGE_URI: ''
+  _GIT_SHA: 'unknown'
