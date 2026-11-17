@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Pangtao — release.sh (called by the deploy workflow, #27 TBD)
+# Pangtao — release.sh (called by .github/workflows/deploy.yml, #27)
 # ==============================================================================
 # WHAT THIS SCRIPT DOES
 #   Update pre-provisioned resources only. Does not create SQL, IAM or secrets.
@@ -34,8 +34,8 @@
 # ⭐ ADAPTED FOR PANGTAO
 #   The image path `pangtao/pangtao` is <Artifact Registry repo>/<image name>,
 #   matching IMAGE_URI in deploy/deploy.sh. The default service/job names match
-#   deploy/deploy.sh and deploy/teardown.sh. The deploy workflow that is meant to
-#   call this script does not exist yet (#27, TBD).
+#   deploy/deploy.sh and deploy/teardown.sh. .github/workflows/deploy.yml (#27)
+#   calls this script on every push to main and for a manual rollback.
 # ==============================================================================
 set -euo pipefail
 

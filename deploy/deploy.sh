@@ -29,8 +29,8 @@ set -euo pipefail
 #   10 Cloud Run service
 #   Steps 7-10 are skipped when the service already exists (unless
 #   --force-image), so a re-run never rolls the service back to the local
-#   working tree. Routine releases are done by release.sh, which the deploy
-#   workflow (#27, TBD) calls with an image built from the commit.
+#   working tree. Routine releases are done by release.sh, which
+#   .github/workflows/deploy.yml (#27) calls with an image built from the commit.
 #
 # ⭐ IMPORTANT
 #   - Existing resources/secrets are reused, never overwritten; a secret counts
@@ -60,7 +60,7 @@ set -euo pipefail
 #   Resource names, secrets, the database URL, the migrate/seed commands and the
 #   container port below match this repository. If you rename anything here,
 #   rename it in deploy/release.sh, deploy/teardown.sh, deploy/tests/* and
-#   .github/workflows/deploy.yml (when #27 adds it) too.
+#   .github/workflows/deploy.yml too.
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -389,7 +389,8 @@ run_cmd gcloud services enable \
 
 # ==============================================================================
 # 2. Create Artifact Registry repository (idempotent)
-#    Stores the container images; the deploy workflow (#27) pushes one per SHA.
+#    Stores the container images; .github/workflows/deploy.yml (#27) pushes one
+#    per commit SHA.
 # ==============================================================================
 if [ "$DRY_RUN" = "1" ]; then
   run_cmd gcloud artifacts repositories describe "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID"
