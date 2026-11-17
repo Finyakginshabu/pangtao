@@ -6,8 +6,8 @@ How Pangtao is built, configured, deployed and released. Covers R-01, R-02, R-04
 |---|---|
 | Repository | `yakginmomo/pangtao` (public, R-12) |
 | Release branch | `main` (only `main` deploys); integration branch `sprint-2-staging` |
-| Public URL | _TBD (#25)_ |
-| Running commit | _TBD (#27)_ |
+| Public URL | https://pangtao-vowtduxdha-as.a.run.app |
+| Running commit | Changes with every release; find it as in §6 |
 
 ## 1. Stack
 
@@ -169,3 +169,5 @@ Work happens on a feature branch and merges into `sprint-2-staging` by pull requ
 | Image label | `docker inspect <image> --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'` |
 | Startup log | `🚀 Pangtao server running on port 8080 [production] commit <sha>` (`server/src/index.ts:10`, from `APP_COMMIT`) |
 | Cloud Run revision | `gcloud run services describe pangtao --region REGION --format='value(spec.template.spec.containers[0].image)'` returns the digest the revision runs |
+| Cloud Run console | Cloud Run → `pangtao` → Revision history: the newest revision has 100% of traffic, and its image digest equals `Digest` in the run summary |
+| Migration job | Cloud Run → Jobs → `pangtao-migrate` → Executions: the release's execution succeeded |

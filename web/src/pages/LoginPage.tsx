@@ -144,7 +144,7 @@ export const LoginPage: React.FC = () => {
               />
             </h1>
             <p style={{ color: colors.cobalt, margin: 0, fontSize: '0.875rem', lineHeight: 1.45, opacity: 0.75 }}>
-              Log in to your Pangtao account
+              Log in to your Pangtao account (67)
             </p>
           </div>
 
