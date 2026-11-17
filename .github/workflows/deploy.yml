@@ -187,7 +187,7 @@ jobs:
       - name: Record deployment
         run: |
           {
-            echo '### TokTickIT demo deployment'
+            echo '### pangtao demo deployment'
             echo "- Commit image tag: \`$IMAGE_TAG\`"
             echo "- Digest: \`$DEPLOYED_IMAGE\`"
             echo "- Rollback: $ROLLBACK"
