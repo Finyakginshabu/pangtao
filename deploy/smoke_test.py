@@ -1,8 +1,8 @@
 """Public deployment checks for Pangtao. Credentials/tokens are never printed.
 
 WHAT THIS SCRIPT DOES
-    Intended to be called by .github/workflows/deploy.yml (#27, TBD) after a
-    deployment:
+    Called by .github/workflows/deploy.yml after a deployment (and runnable by
+    hand):
         python3 deploy/smoke_test.py SERVICE_URL
     It checks the live service and exits non-zero (failing the workflow) if any
     check fails. Each public check is retried up to 5 times, 3 seconds apart, to
@@ -17,8 +17,9 @@ WHAT THIS SCRIPT DOES
       3. OPTIONAL login test -> POST /api/v1/auth/login, GET /api/v1/auth/me,
          POST /api/v1/auth/logout. Runs only if BOTH env vars SMOKE_EMAIL and
          SMOKE_PASSWORD are set (set both or neither). The session is always
-         logged out, even if a check fails. For the seeded demo users use
-         admin@example.test and the value of the pangtao-seed-password secret.
+         logged out, even if a check fails. Use a dedicated USER account (for
+         example alice@example.test), never the admin, with the value of the
+         pangtao-seed-password secret.
 
 IMPORTANT
     Uses only the Python standard library (no pip install needed).
